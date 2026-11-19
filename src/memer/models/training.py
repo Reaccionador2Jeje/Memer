@@ -142,42 +142,6 @@ class Adam:
         correction1 = 1.0 - self.beta1 ** self.step_count
         correction2 = 1.0 - self.beta2 ** self.step_count
 
-        def update(param, grad, first, second):
-            if isinstance(param, list):
-                if not isinstance(grad, list) or len(param) != len(grad):
-                    raise ValueError("Adam parameter and gradient shapes differ")
-                for index in range(len(param)):
-                    update(param[index], grad[index], first[index], second[index])
-                return
-            g = float(grad) * clip
-            first_value = self.beta1 * first + (1.0 - self.beta1) * g
-            second_value = self.beta2 * second + (1.0 - self.beta2) * g * g
-            first_hat = first_value / correction1
-            second_hat = second_value / correction2
-            param -= self.learning_rate * (
-                first_hat / (math.sqrt(second_hat) + self.epsilon)
-                + self.weight_decay * param
-            )
-            return first_value, second_value
-
-        def apply(param, grad, first, second):
-            if isinstance(param, list):
-                for index in range(len(param)):
-                    apply(param[index], grad[index], first[index], second[index])
-            else:
-                first_value, second_value = update(param, grad, first, second)
-                return first_value, second_value
-            return first, second
-
-        def update_states(param, grad, first, second):
-            if isinstance(param, list):
-                for index in range(len(param)):
-                    update_states(param[index], grad[index], first[index], second[index])
-            else:
-                first_value, second_value = update(param, grad, first, second)
-                return first_value, second_value
-            return first, second
-
         # Mutate parameter containers and return updated moment leaves.
         def walk(param, grad, first, second):
             if isinstance(param, dict):
