@@ -3,7 +3,7 @@
 from uuid import uuid4
 import os
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from memer import __version__
@@ -102,7 +102,6 @@ def health() -> HealthResponse:
 @app.post("/v1/chat/completions", response_model=ChatResponse)
 def chat(
     request: ChatRequest,
-    http_request: Request,
     authorization: str | None = Header(default=None),
 ) -> ChatResponse:
     if runtime_config_error:
