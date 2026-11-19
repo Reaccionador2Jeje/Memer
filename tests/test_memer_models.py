@@ -89,7 +89,7 @@ class CausalBatchTests(unittest.TestCase):
         from memer.models.data import IGNORE_INDEX, encode_documents, make_batches
 
         tokenizer = ByteTokenizer()
-        documents = encode_documents("ab\nxy", tokenizer)
+        documents = encode_documents("a\nxy", tokenizer)
         batches = list(make_batches(documents, block_size=3, batch_size=2))
         self.assertTrue(batches)
         batch = batches[0]
