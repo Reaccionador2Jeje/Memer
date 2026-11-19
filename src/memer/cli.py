@@ -39,6 +39,18 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--block-size", type=int, default=32)
     train.add_argument("--seed", type=int, default=17)
 
+    checkpoint = commands.add_parser("checkpoint", help="manage local model checkpoints")
+    checkpoint_commands = checkpoint.add_subparsers(dest="checkpoint_command")
+
+    checkpoint_list = checkpoint_commands.add_parser("list", help="list checkpoints in a directory")
+    checkpoint_list.add_argument("directory", nargs="?", type=Path, default=Path("checkpoints"))
+
+    checkpoint_inspect = checkpoint_commands.add_parser("inspect", help="show checkpoint architecture")
+    checkpoint_inspect.add_argument("path", type=Path)
+
+    checkpoint_validate = checkpoint_commands.add_parser("validate", help="validate a checkpoint")
+    checkpoint_validate.add_argument("path", type=Path)
+
     generate = commands.add_parser("generate", help="generate text from a saved native checkpoint")
     generate.add_argument("checkpoint", type=Path)
     generate.add_argument("--prompt", required=True)
@@ -88,6 +100,54 @@ def main(argv: list[str] | None = None) -> int:
         if args.validation is not None:
             forwarded.extend(["--validation", str(args.validation)])
         return train_main(forwarded)
+
+    if args.command == "checkpoint":
+        from memer.models.checkpoints import (
+            CheckpointManagerError,
+            inspect_checkpoint,
+            list_checkpoints,
+            validate_checkpoint,
+        )
+
+        try:
+            if args.checkpoint_command == "list":
+                items = list_checkpoints(args.directory)
+                if not items:
+                    print(f"No checkpoints found in {args.directory}")
+                    return 0
+                for item in items:
+                    status = "valid" if item.get("valid", True) else "INVALID"
+                    print(f"{status:7}  {item['path']}")
+                    if item.get("valid", True):
+                        print(
+                            f"         {item['config']['dimension']}D | "
+                            f"{item['config']['layers']} layer(s) | "
+                            f"{item['parameters']} parameters | "
+                            f"{item['size_bytes']} bytes"
+                        )
+                    else:
+                        print(f"         {item['error']}")
+                return 0
+
+            if args.checkpoint_command in {"inspect", "validate"}:
+                info = (
+                    inspect_checkpoint(args.path)
+                    if args.checkpoint_command == "inspect"
+                    else validate_checkpoint(args.path)
+                )
+                print(f"Checkpoint: {info['path']}")
+                print(f"Format: {info['format']} v{info['format_version']}")
+                print(f"Parameters: {info['parameters']}")
+                print(f"Size: {info['size_bytes']} bytes")
+                for key, value in info["config"].items():
+                    print(f"{key}: {value}")
+                if args.checkpoint_command == "validate":
+                    print("Validation: OK")
+                return 0
+
+            parser.error("choose checkpoint list, checkpoint inspect, or checkpoint validate")
+        except CheckpointManagerError as exc:
+            parser.error(str(exc))
 
     if args.command == "generate":
         from memer.models.byte_tokenizer import ByteTokenizer
