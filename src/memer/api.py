@@ -61,10 +61,16 @@ def health() -> HealthResponse:
 def chat(request: ChatRequest) -> ChatResponse:
     if provider is None:
         raise HTTPException(status_code=503, detail=provider_error)
+    if request.model and request.model != provider.model_name:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Configured model is '{provider.model_name}'. Model switching is not available yet.",
+        )
     try:
         content = provider.generate(request.messages)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        # Keep internal exception details out of public API responses.
+        raise HTTPException(status_code=502, detail="Model provider failed") from exc
 
     return ChatResponse(
         id=f"memer-{uuid4().hex}",
