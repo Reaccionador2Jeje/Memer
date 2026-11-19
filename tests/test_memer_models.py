@@ -402,3 +402,70 @@ class CausalAttentionBackwardTests(unittest.TestCase):
                 attention.value_bias, attention.output_bias,
                 [[1.0, 1.0]], heads=3,
             )
+
+
+class TransformerBlockBackwardTests(unittest.TestCase):
+    def make_block(self):
+        import random
+        from memer.models.transformer import TransformerBlock
+
+        return TransformerBlock(4, 2, 5, random.Random(47))
+
+    def test_block_backward_shapes_and_finite_differences(self):
+        block = self.make_block()
+        sequence = [
+            [0.2, -0.4, 0.7, 0.1],
+            [-0.3, 0.8, 0.15, -0.6],
+        ]
+        upstream = [
+            [0.3, -0.2, 0.1, 0.4],
+            [-0.1, 0.25, 0.5, -0.3],
+        ]
+        grad_inputs, grads = block.backward(sequence, upstream)
+        self.assertEqual(len(grad_inputs), 2)
+        self.assertTrue(all(len(row) == 4 for row in grad_inputs))
+        self.assertEqual(len(grads["ff1"]), 5)
+        self.assertEqual(len(grads["ff2"]), 4)
+
+        def objective():
+            output = block.forward(sequence)
+            return sum(
+                output[row][column] * upstream[row][column]
+                for row in range(2) for column in range(4)
+            )
+
+        epsilon = 1e-5
+        checks = [
+            (sequence, 1, 2, grad_inputs[1][2]),
+            (block.ff2, 0, 1, grads["ff2"][0][1]),
+            (block.attention.query, 1, 2, grads["attention"]["query"][1][2]),
+        ]
+        for tensor, row, column, analytic in checks:
+            original = tensor[row][column]
+            tensor[row][column] = original + epsilon
+            plus = objective()
+            tensor[row][column] = original - epsilon
+            minus = objective()
+            tensor[row][column] = original
+            numeric = (plus - minus) / (2 * epsilon)
+            self.assertAlmostEqual(analytic, numeric, places=5)
+
+    def test_block_backward_respects_attention_padding_mask(self):
+        block = self.make_block()
+        sequence = [[0.1, 0.2, -0.3, 0.4], [0.5, -0.2, 0.1, 0.3]]
+        upstream = [[0.2, 0.1, -0.4, 0.3], [0.1, -0.3, 0.2, 0.4]]
+        grad_inputs, grads = block.backward(
+            sequence, upstream, attention_mask=[1, 0]
+        )
+        self.assertEqual(len(grad_inputs), 2)
+        self.assertEqual(
+            grads["attention"]["key_activations"][1], [0.0, 0.0, 0.0, 0.0]
+        )
+        self.assertEqual(
+            grads["attention"]["value_activations"][1], [0.0, 0.0, 0.0, 0.0]
+        )
+
+    def test_block_backward_rejects_invalid_shapes(self):
+        block = self.make_block()
+        with self.assertRaises(ValueError):
+            block.backward([[0.1, 0.2]], [[0.1, 0.2]])
