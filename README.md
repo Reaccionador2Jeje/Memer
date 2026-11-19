@@ -116,7 +116,7 @@ The API must allow the website's origin through `MEMER_CORS_ORIGINS`. For exampl
 MEMER_CORS_ORIGINS="http://localhost:5173,https://memer-public-ity8fh.v2.appdeploy.ai" memer serve
 ```
 
-Replace `https://YOUR-PUBLIC-SITE` with the exact deployed website origin. Do not use a wildcard for a publicly exposed API unless you understand the access implications.
+Use the exact deployed website origin in the list. Do not use a wildcard for a publicly exposed API unless you understand the access implications.
 
 ## Run the native model through Memer Core
 
@@ -154,7 +154,7 @@ curl -X POST http://127.0.0.1:8000/v1/chat/completions \
   }'
 ```
 
-The response contains `content`, `model`, and `provider`. The default development provider is a mock and is not an AI model. Memer Core also supports the experimental native Transformer provider:
+The response contains `content`, `model`, and `provider`. The default development provider is a mock and is not an AI model. Memer Core also supports the experimental native Transformer provider and the optional Ollama adapter.
 
 ## Development
 
@@ -207,6 +207,9 @@ install.sh
 install.ps1
 web/
   index.html
+  src/
+    main.ts
+    styles.css
 tests/
 docs/
 ```
@@ -214,7 +217,7 @@ docs/
 ## Roadmap
 
 1. Stabilize the Memer Models training and checkpoint formats.
-2. Integrate native Transformer inference into Memer Core.
+2. Expand and evaluate native Transformer inference in Memer Core.
 3. Improve tokenizer efficiency, training speed, evaluation, and dataset tooling.
 4. Expand Memer CLI with model inspection and checkpoint management.
 5. Grow Memer Public into the official Memer web platform.
