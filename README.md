@@ -118,6 +118,22 @@ MEMER_CORS_ORIGINS="http://localhost:5173,https://memer-public-ity8fh.v2.appdepl
 
 Replace `https://YOUR-PUBLIC-SITE` with the exact deployed website origin. Do not use a wildcard for a publicly exposed API unless you understand the access implications.
 
+## Run the native model through Memer Core
+
+After training and saving a checkpoint, configure the native provider:
+
+```bash
+export MEMER_PROVIDER=native
+export MEMER_MODEL_NAME=memer-small
+export MEMER_CHECKPOINT_PATH=checkpoints/memer-small.json
+export MEMER_MAX_NEW_TOKENS=80
+export MEMER_TEMPERATURE=0.8
+export MEMER_CORS_ORIGINS="http://localhost:5173,https://memer-public-ity8fh.v2.appdeploy.ai"
+memer serve --host 127.0.0.1 --port 8000
+```
+
+Then open [Memer Public](https://memer-public-ity8fh.v2.appdeploy.ai/), select Playground, and connect to `http://127.0.0.1:8000` when the site and API are being used on the same device. For a remote API, use its reachable HTTPS address and configure its CORS origin. The native provider is experimental; a tiny checkpoint trained on a few lines will still generate low-quality text.
+
 ## HTTP API
 
 Health check:
@@ -138,7 +154,7 @@ curl -X POST http://127.0.0.1:8000/v1/chat/completions \
   }'
 ```
 
-The response contains `content`, `model`, and `provider`. The default development provider is a mock and is not an AI model. Native Transformer inference is being integrated into Memer Core separately; do not mistake the mock response for Memer model output.
+The response contains `content`, `model`, and `provider`. The default development provider is a mock and is not an AI model. Memer Core also supports the experimental native Transformer provider:
 
 ## Development
 
