@@ -4,7 +4,7 @@
 
 Memer is AtDev's AI project: an open and accessible foundation for building a conversational assistant, model integrations, and developer tools.
 
-> **Development status:** early development. Memer Core 0.1.0 establishes the API and provider architecture. The initial mock provider is for development only; it is not a trained language model.
+> **Development status:** early development. Memer Core 0.2.0 supports the API, a development mock, and an adapter for locally hosted models through Ollama. Memer itself is not yet a separately trained foundation model.
 
 ## Project goals
 
@@ -26,11 +26,11 @@ Memer Chat / MemeCode / AtDev apps
                 |
         Model provider interface
           /             \
-   Development mock   Model runtime
-                       (planned)
+ Development mock     Ollama adapter
+                     Local model runtime
 ```
 
-Memer Core separates the API from model execution. This allows model runtimes to be added or replaced without changing the public chat contract.
+Memer Core separates the API from model execution. A provider can be changed through configuration without changing the chat endpoint.
 
 ## Quick start
 
@@ -47,9 +47,36 @@ pip install -e ".[dev]"
 uvicorn memer.api:app --reload
 ```
 
-Open the interactive API documentation at http://127.0.0.1:8000/docs.
+Open http://127.0.0.1:8000/docs for interactive API documentation.
 
-## First API request
+## Use a local Ollama model
+
+First, install and start Ollama separately, then download a model supported by your device. For example, after choosing an appropriate model:
+
+```bash
+ollama pull llama3.2:1b
+```
+
+Configure Memer before starting the API:
+
+```bash
+MEMER_PROVIDER=ollama
+MEMER_MODEL_NAME=llama3.2:1b
+MEMER_OLLAMA_BASE_URL=http://127.0.0.1:11434
+MEMER_REQUEST_TIMEOUT=120
+```
+
+On Windows PowerShell, set environment variables with `$env:NAME="value"`. On Linux/macOS, use `export NAME=value`.
+
+Then run:
+
+```bash
+uvicorn memer.api:app --reload
+```
+
+The Ollama service must be reachable from the machine running Memer. Model memory and speed depend on the selected model and available hardware.
+
+## API request
 
 ```bash
 curl -X POST http://127.0.0.1:8000/v1/chat/completions \
@@ -61,32 +88,34 @@ curl -X POST http://127.0.0.1:8000/v1/chat/completions \
   }'
 ```
 
-The default development provider returns a clearly identified placeholder response. It does not perform real language-model inference.
-
 ## Run tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
+Tests use a mocked Ollama HTTP response; they do not require a running Ollama server or downloaded model.
+
 ## Repository layout
 
 ```text
 src/memer/
-  api.py             HTTP API
-  config.py          Environment-based configuration
-  schemas.py         Request and response contracts
+  api.py
+  config.py
+  schemas.py
   providers/
-    base.py          Provider interface
-    mock.py          Development-only mock provider
+    base.py
+    mock.py
+    ollama.py
 tests/
   test_provider.py
+  test_ollama.py
 ```
 
 ## Roadmap
 
-1. **Memer Core 0.1.0:** API contracts, provider interface, health endpoint, tests.
-2. **Model runtime:** connect a locally hosted/open model through a provider adapter.
+1. **Memer Core:** stable API contracts and provider architecture.
+2. **Model runtime:** expand local and remote model adapters.
 3. **Memer Chat:** web chat client and conversation management.
 4. **MemeCode integration:** secure tool interface for the official coding agent.
 5. **Memer Models:** evaluation, fine-tuning experiments, datasets, and model lifecycle.
