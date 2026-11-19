@@ -381,6 +381,189 @@ class MemerTransformer:
         return batch_logits
 
 
+
+    def backward(
+        self,
+        input_ids: list[list[int]],
+        output_gradients: list[list[list[float]]],
+        attention_mask: list[list[int]] | None = None,
+    ) -> dict[str, object]:
+        """Backpropagate logits gradients through the complete model.
+
+        Gradients for the tied token embedding include both the input lookup
+        path and the output projection path.
+        """
+        from memer.models.backward import layer_norm_backward
+
+        if not isinstance(input_ids, list) or not input_ids:
+            raise TransformerError("backward input_ids must be a non-empty batch")
+        if len(output_gradients) != len(input_ids):
+            raise TransformerError("backward gradient batch does not match inputs")
+        batch_size = len(input_ids)
+        sequence_length = len(input_ids[0])
+        if sequence_length == 0 or sequence_length > self.block_size:
+            raise TransformerError("backward sequence length is invalid")
+        if any(not isinstance(row, list) or len(row) != sequence_length for row in input_ids):
+            raise TransformerError("backward input rows must have equal lengths")
+        if any(not isinstance(row, list) or len(row) != sequence_length for row in output_gradients):
+            raise TransformerError("backward output gradient shape is invalid")
+        if attention_mask is None:
+            attention_mask = [[0 if token == PAD else 1 for token in row] for row in input_ids]
+        if len(attention_mask) != batch_size or any(
+            len(row) != sequence_length or any(value not in (0, 1) for value in row)
+            for row in attention_mask
+        ):
+            raise TransformerError("backward attention mask shape or values are invalid")
+
+        def zeros_like(value):
+            if isinstance(value, list):
+                return [zeros_like(item) for item in value]
+            return 0.0
+
+        def add_in_place(target, source):
+            if isinstance(target, list):
+                for left, right in zip(target, source):
+                    add_in_place(left, right)
+            else:
+                return target + source
+            return target
+
+        gradients: dict[str, object] = {
+            "token_embeddings": zeros_like(self.token_embeddings),
+            "position_embeddings": zeros_like(self.position_embeddings),
+            "final_norm_scale": [0.0] * self.dimension,
+            "final_norm_bias": [0.0] * self.dimension,
+            "output_bias": [0.0] * self.vocab_size,
+            "blocks": [
+                {
+                    "attention_norm_scale": [0.0] * self.dimension,
+                    "attention_norm_bias": [0.0] * self.dimension,
+                    "feed_forward_norm_scale": [0.0] * self.dimension,
+                    "feed_forward_norm_bias": [0.0] * self.dimension,
+                    "attention": {
+                        key: zeros_like(getattr(block.attention, key))
+                        for key in ("query", "key", "value", "output",
+                                    "query_bias", "key_bias", "value_bias", "output_bias")
+                    },
+                    "ff1": zeros_like(block.ff1),
+                    "ff1_bias": [0.0] * self.feed_forward_dim,
+                    "ff2": zeros_like(block.ff2),
+                    "ff2_bias": [0.0] * self.dimension,
+                }
+                for block in self.blocks
+            ],
+        }
+
+        for batch_index, token_row in enumerate(input_ids):
+            if any(isinstance(token, bool) or not isinstance(token, int)
+                   or not 0 <= token < self.vocab_size for token in token_row):
+                raise TransformerError("backward token ID is outside the vocabulary")
+            mask = attention_mask[batch_index]
+            hidden = [
+                [self.token_embeddings[token][d] + self.position_embeddings[pos][d]
+                 for d in range(self.dimension)]
+                for pos, token in enumerate(token_row)
+            ]
+            block_inputs = []
+            for block in self.blocks:
+                block_inputs.append(hidden)
+                hidden = block.forward(hidden, mask)
+
+            grad_hidden = []
+            for position, vector in enumerate(hidden):
+                upstream = output_gradients[batch_index][position]
+                if len(upstream) != self.vocab_size or any(
+                    not math.isfinite(value) for value in upstream
+                ):
+                    raise TransformerError("logits gradients must be finite and match vocabulary")
+                normalized = _layer_norm(vector, self.final_norm_scale, self.final_norm_bias)
+                grad_normalized = [0.0] * self.dimension
+                for token_id, grad_logit in enumerate(upstream):
+                    gradients["output_bias"][token_id] += grad_logit
+                    token_embedding_grad = gradients["token_embeddings"][token_id]
+                    for d in range(self.dimension):
+                        grad_normalized[d] += grad_logit * self.token_embeddings[token_id][d]
+                        token_embedding_grad[d] += grad_logit * normalized[d]
+                grad_vector, grad_scale, grad_bias = layer_norm_backward(
+                    vector, self.final_norm_scale, grad_normalized
+                )
+                grad_hidden.append(grad_vector)
+                for d in range(self.dimension):
+                    gradients["final_norm_scale"][d] += grad_scale[d]
+                    gradients["final_norm_bias"][d] += grad_bias[d]
+
+            for block_index in range(self.layers - 1, -1, -1):
+                grad_hidden, block_grads = self.blocks[block_index].backward(
+                    block_inputs[block_index], grad_hidden, mask
+                )
+                target = gradients["blocks"][block_index]
+
+                def accumulate(left, right):
+                    if isinstance(left, dict):
+                        for key in left:
+                            accumulate(left[key], right[key])
+                    elif isinstance(left, list):
+                        for index in range(len(left)):
+                            accumulate(left[index], right[index])
+                    else:
+                        return left + right
+                    return left
+
+                accumulate(target, block_grads)
+
+            for position, token_id in enumerate(token_row):
+                for d in range(self.dimension):
+                    value = grad_hidden[position][d]
+                    gradients["token_embeddings"][token_id][d] += value
+                    gradients["position_embeddings"][position][d] += value
+
+        return gradients
+
+    def generate(
+        self,
+        prompt: str,
+        tokenizer=None,
+        *,
+        max_new_tokens: int = 80,
+        temperature: float = 0.8,
+        seed: int = 17,
+    ) -> str:
+        """Generate text autoregressively from a UTF-8 byte tokenizer."""
+        import random
+        from memer.models.byte_tokenizer import ByteTokenizer, BOS, EOS
+
+        if tokenizer is None:
+            tokenizer = ByteTokenizer()
+        if not isinstance(tokenizer, ByteTokenizer):
+            raise TypeError("tokenizer must be a ByteTokenizer")
+        if isinstance(max_new_tokens, bool) or not isinstance(max_new_tokens, int) or max_new_tokens < 0:
+            raise ValueError("max_new_tokens must be a non-negative integer")
+        if not math.isfinite(temperature) or temperature <= 0:
+            raise ValueError("temperature must be positive and finite")
+        rng = random.Random(seed)
+        tokens = [BOS, *tokenizer.encode(prompt)]
+        for _ in range(max_new_tokens):
+            context = tokens[-self.block_size:]
+            logits = self.forward([context])[0][-1]
+            scaled = [value / temperature for value in logits]
+            peak = max(scaled)
+            probabilities = [math.exp(value - peak) for value in scaled]
+            total = sum(probabilities)
+            threshold = rng.random() * total
+            cumulative = 0.0
+            selected = len(probabilities) - 1
+            for token_id, probability in enumerate(probabilities):
+                cumulative += probability
+                if cumulative >= threshold:
+                    selected = token_id
+                    break
+            if selected == EOS:
+                break
+            if selected >= 256:
+                continue
+            tokens.append(selected)
+        return tokenizer.decode(tokens[1:])
+
     def _weights_payload(self) -> dict:
         def attention_payload(attention):
             return {
