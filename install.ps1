@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$Repository = "git+https://github.com/Reaccionador2Jeje/Memer.git"
+$Repository = "https://github.com/Reaccionador2Jeje/Memer/archive/refs/heads/main.zip"
 
 Write-Host "Memer CLI installer" -ForegroundColor Cyan
 
