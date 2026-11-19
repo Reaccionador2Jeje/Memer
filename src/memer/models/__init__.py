@@ -2,5 +2,6 @@
 
 from memer.models.bigram import TinyLanguageModel
 from memer.models.byte_tokenizer import ByteTokenizer
+from memer.models.transformer import MemerTransformer, TransformerError
 
-__all__ = ["TinyLanguageModel", "ByteTokenizer"]
+__all__ = ["TinyLanguageModel", "ByteTokenizer", "MemerTransformer", "TransformerError"]
