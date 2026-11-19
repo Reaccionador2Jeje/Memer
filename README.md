@@ -58,10 +58,7 @@ The first native model is a small character-level neural network implemented wit
 Run from the repository root after installing the project:
 
 ```bash
-python scripts/train_memer_model.py \\
-  --data examples/memer-corpus.txt \\
-  --output models/memer-tiny-0.1.json \\
-  --epochs 20
+python scripts/train_memer_model.py --data examples/memer-corpus.txt --output models/memer-tiny-0.1.json --epochs 20
 ```
 
 The script prints training loss, saves the learned parameters, and generates a short sample. The included corpus is only a smoke-test example; useful language quality requires a much larger, carefully prepared, legally usable text corpus. Training speed and output quality depend on corpus size and hardware. The model is intentionally limited to a small vocabulary and short context.
