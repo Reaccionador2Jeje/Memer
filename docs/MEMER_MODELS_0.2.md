@@ -21,6 +21,12 @@ The tokenizer is a separate module. The Memer 0.1 character model and its JSON c
 
 `memer.models.data` now converts non-empty text lines into independent BOS...EOS documents and yields batches for next-token prediction. Inputs and targets are shifted by one token. Short rows are right-padded with PAD; their target positions use IGNORE_INDEX and their attention mask is zero. Shuffling is deterministic when a seed is supplied. This prepares data for a causal decoder; it does not implement attention or model training yet.
 
+## Stage 3: decoder Transformer forward pass
+
+`MemerTransformer` now implements a small decoder-only forward path: token and positional embeddings, pre-layer normalization, causal multi-head scaled dot-product self-attention, residual connections, a ReLU feed-forward network, final normalization, and tied token-embedding output projection. It accepts padded batches and an optional binary attention mask. The implementation uses only the Python standard library.
+
+This milestone provides inference logits only. It does not yet include gradient computation, an optimizer, checkpoint persistence, or a training CLI. Pure-Python attention is intentionally for small experiments and will be slow for large sequence lengths.
+
 ## Next stages
 
 1. Build causal training examples and padded batches.
