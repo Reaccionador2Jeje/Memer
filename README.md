@@ -108,7 +108,11 @@ Generation quality depends on model size, training time, and the quality, quanti
 
 ## Memer Public
 
-Memer Public is live at **https://memer-public-ity8fh.v2.appdeploy.ai/**. It is the browser playground for connecting to a Memer Core API. It does not pretend to generate answers when no model server is connected. To use the playground, start a Memer API instance and enter its reachable base URL.
+Memer Public is live at **https://memer-public-ity8fh.v2.appdeploy.ai/**. It includes the browser playground for connecting to a Memer Core API and an authenticated account workspace with a private model metadata library.
+
+Signed-in users can register model cards (name, version, architecture, and description) and remove them later. Model records are isolated by account. **This library stores metadata only**: it does not upload checkpoint weights or provide hosted inference yet. The next infrastructure phase is a dedicated Memer runtime with authentication, resource limits, and usage controls.
+
+The playground does not pretend to generate answers when no model server is connected. To use it, start a Memer API instance and enter its reachable base URL.
 
 The API must allow the website's origin through `MEMER_CORS_ORIGINS`. For example:
 
@@ -220,7 +224,7 @@ docs/
 2. Expand and evaluate native Transformer inference in Memer Core.
 3. Improve tokenizer efficiency, training speed, evaluation, and dataset tooling.
 4. Expand Memer CLI with model inspection and checkpoint management.
-5. Grow Memer Public into the official Memer web platform.
+5. Add secure checkpoint uploads and a managed, resource-limited Memer inference runtime to Memer Public.
 6. Integrate MemeCode through a clearly permissioned tool interface.
 
 ## Project principles
