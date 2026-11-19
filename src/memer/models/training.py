@@ -67,6 +67,8 @@ def cross_entropy_with_gradients(
 
 
 def _zeros_like(value):
+    if isinstance(value, dict):
+        return {key: _zeros_like(item) for key, item in value.items()}
     if isinstance(value, list):
         return [_zeros_like(item) for item in value]
     return 0.0
@@ -116,7 +118,12 @@ class Adam:
 
         def inspect(param, grad):
             nonlocal squared_norm
-            if isinstance(param, list):
+            if isinstance(param, dict):
+                if not isinstance(grad, dict) or set(param) != set(grad):
+                    raise ValueError("Adam parameter and gradient fields differ")
+                for key in param:
+                    inspect(param[key], grad[key])
+            elif isinstance(param, list):
                 if not isinstance(grad, list) or len(param) != len(grad):
                     raise ValueError("Adam parameter and gradient shapes differ")
                 for p, g in zip(param, grad):
@@ -173,6 +180,14 @@ class Adam:
 
         # Recursively replace scalar moment leaves while mutating parameter leaves.
         def walk(param, grad, first, second):
+            if isinstance(param, dict):
+                if not isinstance(grad, dict) or set(param) != set(grad):
+                    raise ValueError("Adam parameter and gradient fields differ")
+                for key in param:
+                    first[key], second[key] = walk(
+                        param[key], grad[key], first[key], second[key]
+                    )
+                return first, second
             if isinstance(param, list):
                 for index in range(len(param)):
                     first[index], second[index] = walk(
