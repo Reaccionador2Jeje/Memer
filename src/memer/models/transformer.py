@@ -501,13 +501,13 @@ class MemerTransformer:
                 def accumulate(left, right):
                     if isinstance(left, dict):
                         for key in left:
-                            accumulate(left[key], right[key])
-                    elif isinstance(left, list):
+                            left[key] = accumulate(left[key], right[key])
+                        return left
+                    if isinstance(left, list):
                         for index in range(len(left)):
-                            accumulate(left[index], right[index])
-                    else:
-                        return left + right
-                    return left
+                            left[index] = accumulate(left[index], right[index])
+                        return left
+                    return left + right
 
                 accumulate(target, block_grads)
 
