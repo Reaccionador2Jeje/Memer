@@ -190,6 +190,8 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(str(exc))
 
     if args.command == "models":
+        if args.models_command is None:
+            parser.error("choose models list, add, use, inspect, or remove")
         from memer.models.registry import (
             ModelRegistryError, add_model, get_model, list_models, remove_model, use_model,
         )
