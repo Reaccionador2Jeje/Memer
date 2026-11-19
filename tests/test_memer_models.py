@@ -53,9 +53,6 @@ class MemerModelsTests(unittest.TestCase):
             TinyLanguageModel(tokenizer)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class ByteTokenizerTests(unittest.TestCase):
     def test_round_trip_unicode(self):
@@ -83,3 +80,7 @@ class ByteTokenizerTests(unittest.TestCase):
         tokenizer = ByteTokenizer()
         with self.assertRaises(ValueError):
             tokenizer.decode([999])
+
+
+if __name__ == "__main__":
+    unittest.main()
