@@ -108,12 +108,12 @@ Generation quality depends on model size, training time, and the quality, quanti
 
 ## Memer Public
 
-Memer Public is the browser playground for connecting to a Memer Core API. It does not pretend to generate answers when no model server is connected. To use the playground, start a Memer API instance and enter its reachable base URL.
+Memer Public is live at **https://memer-public-ity8fh.v2.appdeploy.ai/**. It is the browser playground for connecting to a Memer Core API. It does not pretend to generate answers when no model server is connected. To use the playground, start a Memer API instance and enter its reachable base URL.
 
 The API must allow the website's origin through `MEMER_CORS_ORIGINS`. For example:
 
 ```bash
-MEMER_CORS_ORIGINS="http://localhost:5173,https://YOUR-PUBLIC-SITE" memer serve
+MEMER_CORS_ORIGINS="http://localhost:5173,https://memer-public-ity8fh.v2.appdeploy.ai" memer serve
 ```
 
 Replace `https://YOUR-PUBLIC-SITE` with the exact deployed website origin. Do not use a wildcard for a publicly exposed API unless you understand the access implications.
