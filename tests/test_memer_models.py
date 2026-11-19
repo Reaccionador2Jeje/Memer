@@ -82,5 +82,40 @@ class ByteTokenizerTests(unittest.TestCase):
             tokenizer.decode([999])
 
 
+
+class CausalBatchTests(unittest.TestCase):
+    def test_batches_shift_targets_and_pad(self):
+        from memer.models.byte_tokenizer import ByteTokenizer, BOS, EOS, PAD
+        from memer.models.data import IGNORE_INDEX, encode_documents, make_batches
+
+        tokenizer = ByteTokenizer()
+        documents = encode_documents("ab\nxy", tokenizer)
+        batches = list(make_batches(documents, block_size=3, batch_size=2))
+        self.assertTrue(batches)
+        batch = batches[0]
+        self.assertEqual(batch["input_ids"][0][0], BOS)
+        self.assertEqual(batch["target_ids"][0][0], ord("a"))
+        self.assertEqual(batch["input_ids"][0][2], PAD)
+        self.assertEqual(batch["target_ids"][0][2], IGNORE_INDEX)
+        self.assertEqual(batch["attention_mask"][0], [1, 1, 0])
+
+    def test_batching_is_deterministic_when_shuffled(self):
+        from memer.models.byte_tokenizer import ByteTokenizer
+        from memer.models.data import encode_documents, make_batches
+
+        documents = encode_documents("first\nsecond\nthird", ByteTokenizer())
+        first = list(make_batches(documents, 4, 2, shuffle=True, seed=9))
+        second = list(make_batches(documents, 4, 2, shuffle=True, seed=9))
+        self.assertEqual(first, second)
+
+    def test_rejects_invalid_batch_sizes(self):
+        from memer.models.data import make_batches
+
+        with self.assertRaises(ValueError):
+            list(make_batches([], 0, 2))
+        with self.assertRaises(ValueError):
+            list(make_batches([], 4, 0))
+
+
 if __name__ == "__main__":
     unittest.main()
