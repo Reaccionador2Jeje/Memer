@@ -4,17 +4,29 @@ $Repository = "https://github.com/Reaccionador2Jeje/Memer/archive/refs/heads/mai
 
 Write-Host "Memer CLI installer" -ForegroundColor Cyan
 
-$Python = Get-Command py -ErrorAction SilentlyContinue
-if ($Python) {
-    & py -3 -c "import sys; assert sys.version_info >= (3, 10), 'Python 3.10+ is required'"
+$PythonLauncher = Get-Command py -ErrorAction SilentlyContinue
+if ($PythonLauncher) {
+    $VersionCheck = & py -3 -c "import sys; print(sys.version_info >= (3, 10))"
+    if ($LASTEXITCODE -ne 0 -or $VersionCheck -ne "True") {
+        throw "Python 3.10 or newer is required."
+    }
     & py -3 -m pip install --upgrade $Repository
+    if ($LASTEXITCODE -ne 0) {
+        throw "Memer installation failed."
+    }
 } else {
-    $Python = Get-Command python -ErrorAction SilentlyContinue
-    if (-not $Python) {
+    $PythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $PythonCommand) {
         throw "Python 3.10+ is required. Install Python and run this installer again."
     }
-    & python -c "import sys; assert sys.version_info >= (3, 10), 'Python 3.10+ is required'"
+    $VersionCheck = & python -c "import sys; print(sys.version_info >= (3, 10))"
+    if ($LASTEXITCODE -ne 0 -or $VersionCheck -ne "True") {
+        throw "Python 3.10 or newer is required."
+    }
     & python -m pip install --upgrade $Repository
+    if ($LASTEXITCODE -ne 0) {
+        throw "Memer installation failed."
+    }
 }
 
 Write-Host ""
