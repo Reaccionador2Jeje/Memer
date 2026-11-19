@@ -41,9 +41,15 @@ The new `memer.models.training.cross_entropy_with_gradients()` function calculat
 
 The new `memer.models.backward` module implements analytical gradients for batched linear layers, LayerNorm, and ReLU. These functions are independently tested, including a finite-difference check for LayerNorm. They are building blocks only: full attention/block backward propagation and parameter updates are not implemented yet.
 
+## Stage 7: causal attention backward
+
+The `causal_attention_backward()` primitive now propagates gradients through the causal multi-head scaled dot-product attention operation and its query, key, value, and output projections. It returns input gradients plus gradients for all projection matrices and biases. The causal visibility rule and key-padding mask are applied during the backward pass. Tests compare selected analytical gradients with finite differences and verify masked positions receive no key/value gradients.
+
+This function is an independently tested primitive. It is not yet wired into TransformerBlock or a full-model training loop.
+
 ## Next stages
 
-1. Implement and test attention and Transformer-block backward propagation.
+1. Wire attention backward into TransformerBlock with residual and LayerNorm gradients.
 2. Connect gradients across the full model, including tied embeddings.
 3. Add an optimizer and a memory-conscious training loop.
 4. Add generation, validation metrics, and a dedicated training CLI.
