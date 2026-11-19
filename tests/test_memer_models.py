@@ -552,3 +552,16 @@ class FullTransformerTrainingTests(unittest.TestCase):
         second = model.generate("A", max_new_tokens=4, seed=3)
         self.assertEqual(first, second)
         self.assertTrue(first.startswith("A"))
+
+
+    def test_evaluation_returns_loss_without_updating_weights(self):
+        from memer.models.byte_tokenizer import ByteTokenizer
+        from memer.models.data import encode_documents
+        from memer.models.training import evaluate_model
+
+        model = self.make_model()
+        documents = encode_documents("validation text", ByteTokenizer())
+        before = model.token_embeddings[ord("v")][0]
+        loss = evaluate_model(model, documents, batch_size=1)
+        self.assertTrue(math.isfinite(loss))
+        self.assertEqual(model.token_embeddings[ord("v")][0], before)
