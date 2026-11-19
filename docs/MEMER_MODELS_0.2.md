@@ -17,6 +17,10 @@ This makes token IDs reproducible across datasets and avoids building a characte
 
 The tokenizer is a separate module. The Memer 0.1 character model and its JSON checkpoints remain unchanged.
 
+## Stage 2: causal next-token batches
+
+`memer.models.data` now converts non-empty text lines into independent BOS...EOS documents and yields batches for next-token prediction. Inputs and targets are shifted by one token. Short rows are right-padded with PAD; their target positions use IGNORE_INDEX and their attention mask is zero. Shuffling is deterministic when a seed is supplied. This prepares data for a causal decoder; it does not implement attention or model training yet.
+
 ## Next stages
 
 1. Build causal training examples and padded batches.
