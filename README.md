@@ -4,7 +4,7 @@
 
 Memer is AtDev's AI project: an open and accessible foundation for building a conversational assistant, model integrations, and developer tools.
 
-> **Development status:** early development. Memer Core 0.2.0 supports the API, a development mock, and an adapter for locally hosted models through Ollama. Memer itself is not yet a separately trained foundation model.
+> **Development status:** early development. Memer Core 0.2.0 provides the API and provider interface. Memer Models 0.1.0 adds a small, trainable native character-level neural language model. It is an experimental research model, not a foundation model or a capable general-purpose assistant.
 
 ## Project goals
 
@@ -49,7 +49,31 @@ uvicorn memer.api:app --reload
 
 Open http://127.0.0.1:8000/docs for interactive API documentation.
 
-## Use a local Ollama model
+## Train the native Memer model (0.1.0)
+
+The first native model is a small character-level neural network implemented with the Python standard library. It learns next-character patterns using an embedding layer, context averaging, and a softmax output layer. It does not call an external model API and does not require Ollama.
+
+Run from the repository root after installing the project:
+
+```bash
+python scripts/train_memer_model.py \\
+  --data examples/memer-corpus.txt \\
+  --output models/memer-tiny-0.1.json \\
+  --epochs 20
+```
+
+The script prints training loss, saves the learned parameters, and generates a short sample. The included corpus is only a smoke-test example; useful language quality requires a much larger, carefully prepared, legally usable text corpus. Training speed and output quality depend on corpus size and hardware. The model is intentionally limited to a small vocabulary and short context.
+
+To load and generate from a saved model:
+
+```python
+from memer.models import TinyLanguageModel
+
+model = TinyLanguageModel.load("models/memer-tiny-0.1.json")
+print(model.generate("Memer", max_new_tokens=100))
+```
+
+## Use a local Ollama model (optional integration)
 
 First, install and start Ollama separately, then download a model supported by your device. For example, after choosing an appropriate model:
 
@@ -107,6 +131,14 @@ src/memer/
     base.py
     mock.py
     ollama.py
+  models/
+    __init__.py
+    tokenizer.py
+    bigram.py
+scripts/
+  train_memer_model.py
+examples/
+  memer-corpus.txt
 tests/
   test_provider.py
   test_ollama.py
@@ -118,7 +150,7 @@ tests/
 2. **Model runtime:** expand local and remote model adapters.
 3. **Memer Chat:** web chat client and conversation management.
 4. **MemeCode integration:** secure tool interface for the official coding agent.
-5. **Memer Models:** evaluation, fine-tuning experiments, datasets, and model lifecycle.
+5. **Memer Models:** first native experimental neural language model (0.1.0); improve tokenization, context, training efficiency, evaluation, and datasets.
 6. **Public platform:** documented API, deployment guides, and developer ecosystem.
 
 ## Project principles
