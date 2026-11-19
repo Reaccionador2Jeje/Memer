@@ -161,5 +161,52 @@ class MemerTransformerTests(unittest.TestCase):
             model.forward([[256, 97], [256]])
 
 
+
+class TransformerCheckpointTests(unittest.TestCase):
+    def make_model(self):
+        from memer.models.transformer import MemerTransformer
+
+        return MemerTransformer(
+            vocab_size=259, dimension=8, heads=2, layers=1,
+            feed_forward_dim=16, block_size=8, seed=23,
+        )
+
+    def test_checkpoint_round_trip_preserves_logits(self):
+        from memer.models.transformer import MemerTransformer
+
+        model = self.make_model()
+        sample = [[256, ord("M"), ord("e")]]
+        expected = model.forward(sample)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "memer-transformer.json"
+            model.save(path)
+            restored = MemerTransformer.load(path)
+            self.assertEqual(restored.forward(sample), expected)
+            self.assertEqual(restored.parameter_count(), model.parameter_count())
+
+    def test_checkpoint_rejects_invalid_format(self):
+        from memer.models.transformer import MemerTransformer, TransformerError
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "invalid.json"
+            path.write_text('{"format":"OTHER","format_version":1}', encoding="utf-8")
+            with self.assertRaises(TransformerError):
+                MemerTransformer.load(path)
+
+    def test_checkpoint_rejects_wrong_tensor_shape(self):
+        from memer.models.transformer import MemerTransformer, TransformerError
+
+        model = self.make_model()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "broken.json"
+            model.save(path)
+            import json
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["weights"]["token_embeddings"] = [[0.0]]
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaises(TransformerError):
+                MemerTransformer.load(path)
+
+
 if __name__ == "__main__":
     unittest.main()
