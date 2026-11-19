@@ -229,3 +229,23 @@ def train_model(
             total_loss += train_batch(model, batch, optimizer)
         history.append(total_loss / len(batches))
     return history
+
+
+def evaluate_model(
+    model,
+    documents: list[list[int]],
+    *,
+    batch_size: int = 2,
+) -> float:
+    """Return mean next-token cross-entropy without modifying model weights."""
+    batches = list(make_batches(
+        documents, model.block_size, batch_size, shuffle=False
+    ))
+    if not batches:
+        raise ValueError("evaluation dataset produced no batches")
+    total_loss = 0.0
+    for batch in batches:
+        logits = model.forward(batch["input_ids"], batch["attention_mask"])
+        loss, _ = cross_entropy_with_gradients(logits, batch["target_ids"])
+        total_loss += loss
+    return total_loss / len(batches)
