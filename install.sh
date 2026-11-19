@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-REPOSITORY="git+https://github.com/Reaccionador2Jeje/Memer.git"
+REPOSITORY="https://github.com/Reaccionador2Jeje/Memer/archive/refs/heads/main.zip"
 
 echo "Memer CLI installer"
 echo "Checking Python..."
@@ -10,8 +10,12 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-PYTHON_VERSION="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
-echo "Found Python $PYTHON_VERSION"
+PYTHON_OK="$(python3 -c 'import sys; print(int(sys.version_info >= (3, 10)))')"
+if [ "$PYTHON_OK" != "1" ]; then
+  echo "Python 3.10 or newer is required."
+  exit 1
+fi
+echo "Found a supported Python version."
 
 if command -v pipx >/dev/null 2>&1; then
   echo "Installing isolated CLI with pipx..."
