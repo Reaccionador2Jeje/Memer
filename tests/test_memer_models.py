@@ -469,3 +469,85 @@ class TransformerBlockBackwardTests(unittest.TestCase):
         block = self.make_block()
         with self.assertRaises(ValueError):
             block.backward([[0.1, 0.2]], [[0.1, 0.2]])
+
+
+class FullTransformerTrainingTests(unittest.TestCase):
+    def make_model(self):
+        from memer.models.transformer import MemerTransformer
+
+        return MemerTransformer(
+            vocab_size=259, dimension=4, heads=2, layers=1,
+            feed_forward_dim=5, block_size=4, seed=61,
+        )
+
+    def test_full_model_backward_matches_finite_differences(self):
+        from memer.models.training import cross_entropy_with_gradients
+
+        model = self.make_model()
+        inputs = [[256, 97, 98]]
+        targets = [[97, 98, 257]]
+        mask = [[1, 1, 1]]
+        logits = model.forward(inputs, mask)
+        loss, upstream = cross_entropy_with_gradients(logits, targets)
+        grads = model.backward(inputs, upstream, mask)
+
+        def objective():
+            values = model.forward(inputs, mask)
+            return cross_entropy_with_gradients(values, targets)[0]
+
+        epsilon = 1e-5
+        checks = [
+            (model.token_embeddings, 97, 0, grads["token_embeddings"][97][0]),
+            (model.position_embeddings, 1, 2, grads["position_embeddings"][1][2]),
+            (model.blocks[0].ff2, 1, 2, grads["blocks"][0]["ff2"][1][2]),
+            (model.final_norm_scale, 0, None, grads["final_norm_scale"][0]),
+        ]
+        for tensor, row, column, analytic in checks:
+            if column is None:
+                original = tensor[row]
+                tensor[row] = original + epsilon
+                plus = objective()
+                tensor[row] = original - epsilon
+                minus = objective()
+                tensor[row] = original
+            else:
+                original = tensor[row][column]
+                tensor[row][column] = original + epsilon
+                plus = objective()
+                tensor[row][column] = original - epsilon
+                minus = objective()
+                tensor[row][column] = original
+            numeric = (plus - minus) / (2 * epsilon)
+            self.assertAlmostEqual(analytic, numeric, places=4)
+
+    def test_train_batch_updates_model_parameters(self):
+        from memer.models.byte_tokenizer import ByteTokenizer
+        from memer.models.data import encode_documents, make_batches
+        from memer.models.training import Adam, train_batch
+
+        model = self.make_model()
+        docs = encode_documents("hi", ByteTokenizer())
+        batch = next(make_batches(docs, block_size=4, batch_size=1))
+        before = model.token_embeddings[ord("h")][0]
+        loss = train_batch(model, batch, Adam(learning_rate=1e-3))
+        self.assertTrue(math.isfinite(loss))
+        self.assertNotEqual(model.token_embeddings[ord("h")][0], before)
+
+    def test_adam_reduces_simple_scalar_objective(self):
+        from memer.models.training import Adam
+
+        parameters = [[2.0, -1.0]]
+        optimizer = Adam(learning_rate=0.05, gradient_clip_norm=None)
+        for _ in range(20):
+            gradients = [[2.0 * parameters[0][0], 2.0 * parameters[0][1]]]
+            optimizer.step(parameters, gradients)
+        self.assertLess(abs(parameters[0][0]), 2.0)
+        self.assertLess(abs(parameters[0][1]), 1.0)
+        self.assertEqual(optimizer.step_count, 20)
+
+    def test_generation_is_seeded_and_returns_prompt(self):
+        model = self.make_model()
+        first = model.generate("A", max_new_tokens=4, seed=3)
+        second = model.generate("A", max_new_tokens=4, seed=3)
+        self.assertEqual(first, second)
+        self.assertTrue(first.startswith("A"))
