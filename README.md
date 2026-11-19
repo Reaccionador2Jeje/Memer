@@ -138,6 +138,12 @@ memer serve --host 127.0.0.1 --port 8000
 
 Then open [Memer Public](https://memer-public-ity8fh.v2.appdeploy.ai/), select Playground, and connect to `http://127.0.0.1:8000` when the site and API are being used on the same device. For a remote API, use its reachable HTTPS address and configure its CORS origin. The native provider is experimental; a tiny checkpoint trained on a few lines will still generate low-quality text.
 
+
+
+## Memer Runtime security (0.1)
+
+Memer Core now supports a production API-key gate and basic inference resource limits. For a hosted instance, configure `MEMER_ENV=production`, set `MEMER_API_KEYS` as a server-side secret, and review [the runtime security guide](docs/MEMER_RUNTIME_0.1.md). Production mode refuses chat requests without a valid Bearer key, limits prompt size and generation concurrency, and caps native output length. The concurrency guard is single-process only; distributed quotas and per-user keys are not implemented yet. Never put a server-wide API key in public browser code.
+
 ## HTTP API
 
 Health check:
