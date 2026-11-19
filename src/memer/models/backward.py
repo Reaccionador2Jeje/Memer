@@ -267,5 +267,9 @@ def causal_attention_backward(
         "key_bias": grad_key_bias,
         "value_bias": grad_value_bias,
         "output_bias": grad_output_bias,
+        # Activation gradients are exposed for diagnostics and mask tests.
+        "query_activations": grad_queries,
+        "key_activations": grad_keys,
+        "value_activations": grad_values,
     }
     return grad_inputs, parameter_gradients
