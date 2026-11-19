@@ -357,34 +357,6 @@ class MemerTransformer:
                 }
             raise TransformerError(f"unsupported checkpoint structure at {path_name}")
 
-        def restore_object(obj, incoming, path_name):
-            if not isinstance(incoming, dict):
-                raise TransformerError(f"invalid checkpoint object at {path_name}")
-            for key, current in vars(obj).items():
-                if key not in incoming:
-                    raise TransformerError(f"missing checkpoint field {path_name}.{key}")
-                value = incoming[key]
-                if isinstance(current, list):
-                    setattr(obj, key, restore(current, value, f"{path_name}.{key}"))
-                elif hasattr(current, "__dict__"):
-                    restore_object(current, value, f"{path_name}.{key}")
-                else:
-                    raise TransformerError(f"unsupported checkpoint field {path_name}.{key}")
-            if set(incoming) != set(vars(obj)):
-                raise TransformerError(f"unexpected checkpoint fields at {path_name}")
-
-        weights = payload.get("weights")
-        if not isinstance(weights, dict):
-            raise TransformerError("checkpoint weights are invalid")
-        restore_object(model, {
-            "token_embeddings": weights.get("token_embeddings"),
-            "position_embeddings": weights.get("position_embeddings"),
-            "final_norm_scale": weights.get("final_norm_scale"),
-            "final_norm_bias": weights.get("final_norm_bias"),
-            "output_bias": weights.get("output_bias"),
-            "blocks": model.blocks,
-        }, "model") if False else None
-
         # Restore top-level tensors and each block explicitly.
         for name in ("token_embeddings", "position_embeddings", "final_norm_scale", "final_norm_bias", "output_bias"):
             if name not in weights:
