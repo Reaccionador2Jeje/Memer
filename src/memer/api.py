@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException
 
 from memer import __version__
 from memer.config import Settings
-from memer.providers import MockProvider
+from memer.providers import MockProvider, OllamaProvider
 from memer.schemas import ChatRequest, ChatResponse, HealthResponse
 
 settings = Settings.from_env()
@@ -14,15 +14,21 @@ settings = Settings.from_env()
 def build_provider():
     if settings.provider == "mock":
         return MockProvider(model_name=settings.model_name)
+    if settings.provider == "ollama":
+        return OllamaProvider(
+            model_name=settings.model_name,
+            base_url=settings.ollama_base_url,
+            timeout=settings.request_timeout,
+        )
     raise RuntimeError(
         f"Unsupported provider '{settings.provider}'. "
-        "Only 'mock' is available in Memer Core 0.1.0."
+        "Available providers: mock, ollama."
     )
 
 
 try:
     provider = build_provider()
-except RuntimeError as exc:
+except (RuntimeError, ValueError) as exc:
     provider = None
     provider_error = str(exc)
 else:
@@ -30,7 +36,10 @@ else:
 
 app = FastAPI(
     title="Memer API",
-    description="AtDev's experimental AI service. The default provider is a development placeholder.",
+    description=(
+        "AtDev's experimental AI service. Supports a development mock "
+        "and locally hosted models through Ollama."
+    ),
     version=__version__,
 )
 
@@ -55,7 +64,7 @@ def chat(request: ChatRequest) -> ChatResponse:
     try:
         content = provider.generate(request.messages)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail="Model provider failed") from exc
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return ChatResponse(
         id=f"memer-{uuid4().hex}",
