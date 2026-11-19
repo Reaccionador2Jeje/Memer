@@ -59,21 +59,21 @@ This is a per-sequence block training primitive. The full model backward path, t
 
 ## Stage 10: Adam and training loop
 
-The pure-Python `Adam` optimizer supports nested model parameter dictionaries/lists, bias correction, optional weight decay, and global gradient clipping. `train_batch()` runs forward, masked next-token cross-entropy, full backward, and one optimizer update. `train_model()` repeats this over shuffled batches and reports mean epoch losses.
+The pure-Python `Adam` optimizer supports nested model parameter dictionaries/lists, bias correction, optional weight decay, and global gradient clipping. `train_batch()` runs forward, masked next-token cross-entropy, full backward, and one optimizer update. `train_model()` repeats this over shuffled batches and reports mean epoch losses. `evaluate_model()` calculates loss on a separate dataset without updating weights.
 
 ## Stage 11: text generation and CLI
 
 `MemerTransformer.generate()` provides seeded autoregressive sampling with a UTF-8 byte tokenizer. A small command-line trainer is available:
 
 ```bash
-python -m memer.models.train_cli corpus.txt --output memer-transformer.json --epochs 3
+python -m memer.models.train_cli corpus.txt --validation validation.txt --output memer-transformer.json --epochs 3
 ```
 
 Useful small-device settings can be supplied with `--dimension`, `--heads`, `--layers`, `--feed-forward-dim`, `--block-size`, and `--batch-size`. Pure-Python training is computationally expensive; start with a tiny corpus and small dimensions. A successful run proves the training pipeline works, not that the model has learned useful conversational behavior. Dataset quality and scale matter substantially.
 
 ## Next stages
 
-1. Add validation metrics, optimizer-state checkpoint persistence, and more extensive training/evaluation tests.
+1. Add optimizer-state checkpoint persistence and broader dataset/quality evaluation.
 2. Integrate the native model into Memer Core only after its format is stable.
 
 The 0.2 model is experimental. It is not yet a conversational assistant or a production LLM.
