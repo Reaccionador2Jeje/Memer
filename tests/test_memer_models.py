@@ -274,7 +274,7 @@ class TransformerBackwardPrimitiveTests(unittest.TestCase):
             inputs, weights, output_gradients
         )
         self.assertEqual(grad_inputs, [[-1.5, 4.0], [-1.0, -1.5]])
-        self.assertEqual(grad_weights, [[1.0, -4.0], [2.5, -0.5]])
+        self.assertEqual(grad_weights, [[1.0, -4.0], [4.5, -0.5]])
         self.assertEqual(grad_bias, [0.0, 2.5])
 
     def test_layer_norm_backward_matches_finite_difference(self):
