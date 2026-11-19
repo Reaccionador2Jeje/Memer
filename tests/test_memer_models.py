@@ -260,3 +260,59 @@ class TransformerLossTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             cross_entropy_with_gradients([[[0.0, 1.0]]], [[3]])
+
+
+
+class TransformerBackwardPrimitiveTests(unittest.TestCase):
+    def test_linear_backward_shapes_and_values(self):
+        from memer.models.backward import linear_backward
+
+        inputs = [[2.0, -1.0], [1.0, 3.0]]
+        weights = [[0.5, 2.0], [-1.0, 1.0]]
+        output_gradients = [[1.0, 2.0], [-1.0, 0.5]]
+        grad_inputs, grad_weights, grad_bias = linear_backward(
+            inputs, weights, output_gradients
+        )
+        self.assertEqual(grad_inputs, [[-1.5, 4.0], [-1.0, -1.5]])
+        self.assertEqual(grad_weights, [[1.0, -4.0], [2.5, -0.5]])
+        self.assertEqual(grad_bias, [0.0, 2.5])
+
+    def test_layer_norm_backward_matches_finite_difference(self):
+        from memer.models.backward import layer_norm_backward
+
+        values = [0.2, -0.4, 1.1]
+        scale = [1.2, 0.8, -0.7]
+        upstream = [0.3, -0.2, 0.5]
+        grad_inputs, _, _ = layer_norm_backward(values, scale, upstream)
+
+        def objective(candidate):
+            mean = sum(candidate) / len(candidate)
+            variance = sum((value - mean) ** 2 for value in candidate) / len(candidate)
+            inv = 1.0 / (variance + 1e-5) ** 0.5
+            normalized = [(value - mean) * inv for value in candidate]
+            return sum(a * b * c for a, b, c in zip(normalized, scale, upstream))
+
+        epsilon = 1e-5
+        for index in range(len(values)):
+            plus = values.copy()
+            minus = values.copy()
+            plus[index] += epsilon
+            minus[index] -= epsilon
+            numeric = (objective(plus) - objective(minus)) / (2 * epsilon)
+            self.assertAlmostEqual(grad_inputs[index], numeric, places=5)
+
+    def test_relu_backward_blocks_non_positive_inputs(self):
+        from memer.models.backward import relu_backward
+
+        result = relu_backward([[-1.0, 0.0, 2.0]], [[3.0, 4.0, 5.0]])
+        self.assertEqual(result, [[0.0, 0.0, 5.0]])
+
+    def test_backward_primitives_reject_invalid_shapes(self):
+        from memer.models.backward import layer_norm_backward, linear_backward, relu_backward
+
+        with self.assertRaises(ValueError):
+            linear_backward([[1.0]], [[1.0]], [[1.0, 2.0]])
+        with self.assertRaises(ValueError):
+            layer_norm_backward([1.0, 2.0], [1.0], [1.0, 1.0])
+        with self.assertRaises(ValueError):
+            relu_backward([[1.0]], [[1.0, 2.0]])
