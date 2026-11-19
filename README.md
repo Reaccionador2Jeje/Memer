@@ -1,105 +1,132 @@
 # Memer
 
-**The AI Model by AtDev**
+**The AI model and developer platform by AtDev**
 
-Memer is AtDev's AI project: an open and accessible foundation for building a conversational assistant, model integrations, and developer tools.
+Memer is AtDev's open project for building a native language model, a developer CLI, an HTTP API, and a public web playground.
 
-> **Development status:** early development. Memer Core 0.2.0 provides the API and provider interface. Memer Models 0.1.0 adds a small, trainable native character-level neural language model. It is an experimental research model, not a foundation model or a capable general-purpose assistant.
+> **Development status:** experimental. Memer Models 0.2 uses a small byte-level decoder Transformer implemented in pure Python. It can be trained and used for text generation, but it is not yet a capable general-purpose assistant or a production foundation model. Small test corpora will produce poor or incoherent output.
 
-## Project goals
+## Project components
 
-- Build **Memer Core**, the service that coordinates conversations and model providers.
-- Expose a documented HTTP API for applications in the AtDev ecosystem.
-- Develop **Memer Chat**, the user-facing chat platform.
-- Integrate **MemeCode** as AtDev's official coding agent.
-- Research, adapt, evaluate, and eventually train Memer models.
-- Keep essential functionality accessible and avoid mandatory paid features.
+- **Memer Models:** native byte-level Transformer, training, evaluation, checkpoints, and generation.
+- **Memer CLI:** one command-line entry point for model training, text generation, and starting Memer Core.
+- **Memer Core:** FastAPI service with a documented chat API and provider interface.
+- **Memer Public:** browser-based public playground and project information.
+- **MemeCode:** planned integration as AtDev's coding agent.
 
-## Architecture
-
-```text
-Memer Chat / MemeCode / AtDev apps
-                |
-             Memer API
-                |
-            Memer Core
-                |
-        Model provider interface
-          /             \
- Development mock   Native Memer model
-                    (experimental)
-                          |
-                    Memer Models
-```
-
-Memer Core separates the API from model execution. A provider can be changed through configuration without changing the chat endpoint.
-
-## Quick start
+## Quick install
 
 Requires Python 3.10 or newer.
 
-```bash
-python -m venv .venv
-# Linux / macOS
-source .venv/bin/activate
-# Windows PowerShell
-# .venv\Scripts\Activate.ps1
+### Linux, macOS, and Termux
 
-pip install -e ".[dev]"
-uvicorn memer.api:app --reload
-```
-
-Open http://127.0.0.1:8000/docs for interactive API documentation.
-
-## Train the native Memer model (0.1.0)
-
-The first native model is a small character-level neural network implemented with the Python standard library. It learns next-character patterns using an embedding layer, context averaging, and a softmax output layer. It does not call an external model API and does not require Ollama.
-
-Run from the repository root after installing the project:
+From the repository:
 
 ```bash
-python scripts/train_memer_model.py --data examples/memer-corpus.txt --output models/memer-tiny-0.1.json --epochs 20
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+memer --help
 ```
 
-The script prints training loss, saves the learned parameters, and generates a short sample. The included corpus is only a smoke-test example; useful language quality requires a much larger, carefully prepared, legally usable text corpus. Training speed and output quality depend on corpus size and hardware. The model is intentionally limited to a small vocabulary and short context.
-
-To load and generate from a saved model:
-
-```python
-from memer.models import TinyLanguageModel
-
-model = TinyLanguageModel.load("models/memer-tiny-0.1.json")
-print(model.generate("Memer", max_new_tokens=100))
-```
-
-## Use a local Ollama model (optional integration)
-
-First, install and start Ollama separately, then download a model supported by your device. For example, after choosing an appropriate model:
+Or run the installer:
 
 ```bash
-ollama pull llama3.2:1b
+sh install.sh
 ```
 
-Configure Memer before starting the API:
+### Windows PowerShell
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+memer --help
+```
+
+Or run the PowerShell installer from the repository:
+
+```powershell
+.\install.ps1
+```
+
+The installers install the current GitHub main branch. A virtual environment is recommended, especially on Linux distributions that restrict system-wide pip installs. The CLI is installed as the `memer` command on Windows, Linux, macOS, and compatible Python environments such as Termux.
+
+## Memer CLI
+
+Show available commands:
 
 ```bash
-MEMER_PROVIDER=ollama
-MEMER_MODEL_NAME=llama3.2:1b
-MEMER_OLLAMA_BASE_URL=http://127.0.0.1:11434
-MEMER_REQUEST_TIMEOUT=120
+memer --help
+memer --version
+memer info
 ```
 
-On Windows PowerShell, set environment variables with `$env:NAME="value"`. On Linux/macOS, use `export NAME=value`.
-
-Then run:
+Start Memer Core:
 
 ```bash
-uvicorn memer.api:app --reload
+memer serve --host 127.0.0.1 --port 8000
 ```
 
-The Ollama service must be reachable from the machine running Memer. Model memory and speed depend on the selected model and available hardware.
+Open the API documentation at http://127.0.0.1:8000/docs.
 
-## API request
+### Train a native model
+
+Create a UTF-8 text corpus with one document per line, then train:
+
+```bash
+memer train corpus.txt \
+  --output checkpoints/memer-small.json \
+  --epochs 3 \
+  --batch-size 2 \
+  --dimension 16 \
+  --heads 2 \
+  --layers 1 \
+  --feed-forward-dim 32 \
+  --block-size 32
+```
+
+Optional validation data:
+
+```bash
+memer train train.txt --validation validation.txt --output checkpoints/memer.json
+```
+
+### Generate text from a checkpoint
+
+```bash
+memer generate checkpoints/memer-small.json \
+  --prompt "Memer:" \
+  --max-new-tokens 80 \
+  --temperature 0.8 \
+  --seed 17
+```
+
+Generation quality depends on model size, training time, and the quality, quantity, and licensing of the dataset. The included tiny example corpus is only for checking that training works; it is not enough to teach the model conversational language.
+
+## Memer Public
+
+Memer Public is the browser playground for connecting to a Memer Core API. It does not pretend to generate answers when no model server is connected. To use the playground, start a Memer API instance and enter its reachable base URL.
+
+The API must allow the website's origin through `MEMER_CORS_ORIGINS`. For example:
+
+```bash
+MEMER_CORS_ORIGINS="http://localhost:5173,https://YOUR-PUBLIC-SITE" memer serve
+```
+
+Replace `https://YOUR-PUBLIC-SITE` with the exact deployed website origin. Do not use a wildcard for a publicly exposed API unless you understand the access implications.
+
+## HTTP API
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Chat request:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/v1/chat/completions \
@@ -111,53 +138,78 @@ curl -X POST http://127.0.0.1:8000/v1/chat/completions \
   }'
 ```
 
-## Run tests
+The response contains `content`, `model`, and `provider`. The default development provider is a mock and is not an AI model. Native Transformer inference is being integrated into Memer Core separately; do not mistake the mock response for Memer model output.
+
+## Development
+
+Install development dependencies:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Run the test suite:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Tests cover the native model's training, text generation, and save/load cycle, plus the API and provider adapters. They do not require an Ollama server or downloaded model.
+## Architecture
+
+```text
+Memer Public / Memer CLI / AtDev apps
+                 |
+              Memer API
+                 |
+              Memer Core
+                 |
+         Provider / Model runtime
+             /          \
+       Development     Native Memer
+          mock          Transformer
+                            |
+                       Memer Models
+```
 
 ## Repository layout
 
 ```text
 src/memer/
   api.py
+  cli.py
   config.py
   schemas.py
   providers/
-    base.py
-    mock.py
-    ollama.py
   models/
-    __init__.py
-    tokenizer.py
-    bigram.py
-scripts/
-  train_memer_model.py
-examples/
-  memer-corpus.txt
+    byte_tokenizer.py
+    data.py
+    transformer.py
+    backward.py
+    training.py
+    train_cli.py
+install.sh
+install.ps1
+web/
+  index.html
 tests/
-  test_provider.py
-  test_ollama.py
+docs/
 ```
 
 ## Roadmap
 
-1. **Memer Core:** stable API contracts and provider architecture.
-2. **Model runtime:** expand local and remote model adapters.
-3. **Memer Chat:** web chat client and conversation management.
-4. **MemeCode integration:** secure tool interface for the official coding agent.
-5. **Memer Models:** first native experimental neural language model (0.1.0); improve tokenization, context, training efficiency, evaluation, and datasets.
-6. **Public platform:** documented API, deployment guides, and developer ecosystem.
+1. Stabilize the Memer Models training and checkpoint formats.
+2. Integrate native Transformer inference into Memer Core.
+3. Improve tokenizer efficiency, training speed, evaluation, and dataset tooling.
+4. Expand Memer CLI with model inspection and checkpoint management.
+5. Grow Memer Public into the official Memer web platform.
+6. Integrate MemeCode through a clearly permissioned tool interface.
 
 ## Project principles
 
 - Open development and transparent capabilities.
 - Accessible software and no mandatory purchases for essential features.
-- Clear separation between experimental components and production-ready features.
-- Respect for data privacy, model licenses, and dataset provenance.
+- Experimental features are clearly labeled.
+- Respect for privacy, model licenses, and dataset provenance.
 
 ## License
 
