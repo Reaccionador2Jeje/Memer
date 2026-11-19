@@ -1,0 +1,8 @@
+Memer is an experimental language model created by AtDev.
+AtDev develops open and accessible software.
+Memer learns patterns from text and predicts the next character.
+A language model learns from examples and uses its learned parameters to generate text.
+Memer Models is the native model research project inside the AtDev ecosystem.
+This first model is intentionally small and educational.
+It is not a general purpose assistant and it does not understand language like a large model.
+The goal is to build, test, measure, and improve our own neural network.
