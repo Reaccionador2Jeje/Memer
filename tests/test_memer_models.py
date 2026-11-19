@@ -210,3 +210,53 @@ class TransformerCheckpointTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class TransformerLossTests(unittest.TestCase):
+    def test_cross_entropy_and_gradient(self):
+        from memer.models.training import cross_entropy_with_gradients
+
+        logits = [[[2.0, 1.0, 0.0]]]
+        loss, gradients = cross_entropy_with_gradients(logits, [[0]])
+        self.assertAlmostEqual(loss, 0.4076059644, places=7)
+        self.assertAlmostEqual(sum(gradients[0][0]), 0.0, places=12)
+        self.assertLess(gradients[0][0][0], 0.0)
+        self.assertGreater(gradients[0][0][1], 0.0)
+
+    def test_ignored_targets_have_zero_gradient(self):
+        from memer.models.data import IGNORE_INDEX
+        from memer.models.training import cross_entropy_with_gradients
+
+        loss, gradients = cross_entropy_with_gradients(
+            [[[1.0, 2.0], [100.0, -100.0]]],
+            [[1, IGNORE_INDEX]],
+        )
+        self.assertAlmostEqual(loss, 0.3132616875, places=7)
+        self.assertEqual(gradients[0][1], [0.0, 0.0])
+
+    def test_gradient_matches_finite_difference(self):
+        from memer.models.training import cross_entropy_with_gradients
+
+        logits = [[[0.3, -0.2, 0.7]]]
+        _, gradients = cross_entropy_with_gradients(logits, [[2]])
+        epsilon = 1e-5
+        plus = [[[0.3, -0.2, 0.7 + epsilon]]]
+        minus = [[[0.3, -0.2, 0.7 - epsilon]]]
+        loss_plus, _ = cross_entropy_with_gradients(plus, [[2]])
+        loss_minus, _ = cross_entropy_with_gradients(minus, [[2]])
+        numeric = (loss_plus - loss_minus) / (2 * epsilon)
+        self.assertAlmostEqual(gradients[0][0][2], numeric, places=6)
+
+    def test_rejects_batches_without_valid_targets(self):
+        from memer.models.data import IGNORE_INDEX
+        from memer.models.training import cross_entropy_with_gradients
+
+        with self.assertRaises(ValueError):
+            cross_entropy_with_gradients([[[0.0, 1.0]]], [[IGNORE_INDEX]])
+
+    def test_rejects_invalid_target(self):
+        from memer.models.training import cross_entropy_with_gradients
+
+        with self.assertRaises(ValueError):
+            cross_entropy_with_gradients([[[0.0, 1.0]]], [[3]])
