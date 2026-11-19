@@ -27,6 +27,12 @@ The tokenizer is a separate module. The Memer 0.1 character model and its JSON c
 
 This milestone provides inference logits only. It does not yet include gradient computation, an optimizer, checkpoint persistence, or a training CLI. Pure-Python attention is intentionally for small experiments and will be slow for large sequence lengths.
 
+## Stage 4: checkpoint persistence
+
+`MemerTransformer.save()` stores configuration and all model tensors in a versioned JSON checkpoint. `MemerTransformer.load()` reconstructs the architecture and validates tensor names, dimensions, and finite numeric values before restoring weights. A save/load round trip should preserve forward logits exactly for the same inputs.
+
+Checkpoints preserve initialized or modified weights, but this milestone does not add an optimizer or trainable gradient path. Training is still a future milestone.
+
 ## Next stages
 
 1. Build causal training examples and padded batches.
