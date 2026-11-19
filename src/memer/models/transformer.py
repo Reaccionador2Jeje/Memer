@@ -334,6 +334,10 @@ class MemerTransformer:
         except (TypeError, ValueError) as error:
             raise TransformerError(f"invalid checkpoint configuration: {error}") from error
 
+        weights = payload.get("weights")
+        if not isinstance(weights, dict):
+            raise TransformerError("checkpoint weights are invalid")
+
         def restore(current, incoming, path_name):
             if isinstance(current, list):
                 if not isinstance(incoming, list) or len(current) != len(incoming):
