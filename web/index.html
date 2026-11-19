@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#10120f">
+  <meta name="description" content="Memer Public — explore the open language model project by AtDev and connect to a Memer API.">
+  <title>Memer Public — AtDev</title>
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <a class="brand" href="#" data-view="home" aria-label="Memer Public home">
+        <span class="brand-mark">M</span><span>memer<span class="brand-light">/public</span></span>
+      </a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <button class="nav-link active" data-view="home">Overview</button>
+        <button class="nav-link" data-view="playground">Playground</button>
+        <button class="nav-link" data-view="docs">Docs</button>
+      </nav>
+      <a class="github-link" href="https://github.com/Reaccionador2Jeje/Memer" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </header>
+
+    <main>
+      <section class="view active" id="view-home">
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <div class="eyebrow"><span class="pulse-dot"></span> OPEN MODEL PROJECT <span class="eyebrow-divider">/</span> BY ATDEV</div>
+            <h1>Language models.<br><em>Built in the open.</em></h1>
+            <p class="hero-lead">Meet Memer — an independent model project, developer toolkit, and growing ecosystem. Explore the work, run it locally, or connect your own Memer API.</p>
+            <div class="hero-actions">
+              <button class="button button-primary" data-view="playground">Open playground <span>↗</span></button>
+              <a class="button button-secondary" href="https://github.com/Reaccionador2Jeje/Memer" target="_blank" rel="noreferrer">Explore source code</a>
+            </div>
+            <div class="hero-meta"><span>Apache-2.0</span><span>Python 3.10+</span><span>Experimental</span></div>
+          </div>
+          <div class="terminal-card">
+            <div class="terminal-head"><div class="window-dots"><i></i><i></i><i></i></div><span>memer — terminal</span><span class="terminal-live">LOCAL</span></div>
+            <div class="terminal-body">
+              <div class="terminal-line"><span class="prompt">$</span> memer info</div>
+              <div class="terminal-output">Memer 0.3.0<br>Project: AtDev / Memer<br>Native model: byte-level Transformer</div>
+              <div class="terminal-line"><span class="prompt">$</span> memer train corpus.txt --epochs 3</div>
+              <div class="terminal-output muted">Training your own checkpoint…</div>
+              <div class="terminal-line"><span class="prompt">$</span> <span class="cursor"></span></div>
+            </div>
+            <div class="terminal-foot"><span>PURE PYTHON MODEL RUNTIME</span><span>01 / 03</span></div>
+          </div>
+        </div>
+
+        <div class="section-rule"><span>01 / THE PROJECT</span><span>TOOLS FOR BUILDERS</span></div>
+        <div class="feature-grid">
+          <article class="feature-card"><div class="feature-number">01</div><div class="feature-icon">⌘</div><h3>Memer Models</h3><p>A native byte-level Transformer with training, evaluation, checkpoints, and text generation.</p><span class="feature-tag">MODEL RESEARCH</span></article>
+          <article class="feature-card"><div class="feature-number">02</div><div class="feature-icon">›_</div><h3>Memer CLI</h3><p>Train models, generate text, inspect your environment, and start the Core API from one command.</p><span class="feature-tag">DEVELOPER TOOLING</span></article>
+          <article class="feature-card"><div class="feature-number">03</div><div class="feature-icon">◎</div><h3>Memer Core</h3><p>A documented HTTP API with a provider interface for connecting model runtimes.</p><span class="feature-tag">API PLATFORM</span></article>
+        </div>
+
+        <div class="notice"><span class="notice-icon">i</span><div><strong>Research status, clearly stated.</strong><p>The current native model is experimental and very small. This public website does not host a shared inference model. Connect a Memer Core API you control in the Playground. The development mock is not real model output.</p></div></div>
+      </section>
+
+      <section class="view" id="view-playground">
+        <div class="page-heading"><div><div class="eyebrow">02 / INTERACTIVE API CLIENT</div><h2>Memer <em>Playground</em></h2><p>Connect to a Memer Core server and send a real request. No simulated answers.</p></div><span class="status-pill" id="connection-pill"><i></i> NOT CONNECTED</span></div>
+        <div class="playground-layout">
+          <aside class="connect-panel">
+            <div class="panel-label">CONNECTION</div>
+            <label for="api-url">Memer API base URL</label>
+            <input id="api-url" type="url" placeholder="https://your-memer-api.example" autocomplete="url">
+            <p class="field-help">Enter the address of a Memer Core instance that your browser can reach.</p>
+            <button class="button button-primary full-width" id="connect-button">Check connection <span>→</span></button>
+            <div class="connection-result" id="connection-result" role="status" aria-live="polite">No server connected yet.</div>
+            <div class="panel-divider"></div>
+            <div class="panel-label">SERVER INFO</div>
+            <div class="server-row"><span>Service</span><strong id="server-service">—</strong></div>
+            <div class="server-row"><span>Provider</span><strong id="server-provider">—</strong></div>
+            <div class="server-row"><span>Model</span><strong id="server-model">—</strong></div>
+            <div class="small-warning" id="mock-warning" hidden>Mock provider detected. It returns placeholder text, not native Memer model output.</div>
+          </aside>
+          <div class="chat-panel">
+            <div class="chat-head"><div><span class="panel-label">SESSION</span><strong>New conversation</strong></div><button class="text-button" id="clear-chat">Clear chat ↺</button></div>
+            <div class="chat-messages" id="chat-messages" aria-live="polite">
+              <div class="empty-state"><div class="empty-mark">M</div><h3>Your workspace is ready.</h3><p>Connect a Memer API on the left, then send your first message.</p></div>
+            </div>
+            <form class="composer" id="chat-form">
+              <textarea id="message-input" rows="2" placeholder="Connect to an API to start chatting…" disabled></textarea>
+              <div class="composer-bottom"><span>Requests are sent directly from your browser to your configured API.</span><button class="send-button" type="submit" id="send-button" disabled>Send ↗</button></div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-docs">
+        <div class="page-heading"><div><div class="eyebrow">03 / DOCUMENTATION</div><h2>Start building <em>with Memer.</em></h2><p>Install the CLI, train a checkpoint, and launch your own API.</p></div></div>
+        <div class="docs-grid">
+          <article class="docs-card"><span class="docs-index">01 — INSTALL</span><h3>Install Memer CLI</h3><pre><code>python -m venv .venv
+# Linux / macOS / Termux
+source .venv/bin/activate
+# Windows PowerShell:
+# .venv\Scripts\Activate.ps1
+
+pip install -e ".[dev]"
+memer --help</code></pre></article>
+          <article class="docs-card"><span class="docs-index">02 — TRAIN</span><h3>Train a model</h3><pre><code>memer train corpus.txt \
+  --output checkpoints/memer.json \
+  --epochs 3 \
+  --dimension 16 \
+  --heads 2</code></pre></article>
+          <article class="docs-card"><span class="docs-index">03 — GENERATE</span><h3>Generate text</h3><pre><code>memer generate checkpoints/memer.json \
+  --prompt "Hello, Memer:" \
+  --max-new-tokens 80</code></pre></article>
+          <article class="docs-card"><span class="docs-index">04 — SERVE</span><h3>Start the API</h3><pre><code>memer serve --host 0.0.0.0 --port 8000
+
+# API health
+curl http://127.0.0.1:8000/health</code></pre></article>
+        </div>
+        <div class="notice"><span class="notice-icon">!</span><div><strong>Before connecting this site</strong><p>Configure <code>MEMER_CORS_ORIGINS</code> on your API server to include this website's exact origin. Do not expose an unauthenticated API publicly without understanding the resource and access risks.</p></div></div>
+        <a class="docs-source" href="https://github.com/Reaccionador2Jeje/Memer#readme" target="_blank" rel="noreferrer">Read the full README on GitHub ↗</a>
+      </section>
+    </main>
+
+    <footer class="footer"><span>© 2026 ATDEV — MEMER PROJECT</span><span>OPEN DEVELOPMENT <b>•</b> APACHE-2.0</span></footer>
+  </div>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
