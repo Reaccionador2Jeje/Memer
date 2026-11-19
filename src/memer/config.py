@@ -47,8 +47,8 @@ class Settings:
             raise ValueError("MEMER_PORT must be between 1 and 65535")
         if not 0 < request_timeout <= 600:
             raise ValueError("MEMER_REQUEST_TIMEOUT must be greater than 0 and at most 600")
-        if not 1 <= native_max_new_tokens <= 4096:
-            raise ValueError("MEMER_MAX_NEW_TOKENS must be between 1 and 4096")
+        if not 1 <= native_max_new_tokens <= 512:
+            raise ValueError("MEMER_MAX_NEW_TOKENS must be between 1 and 512 for bounded runtime usage")
         if not 0 < native_temperature <= 5:
             raise ValueError("MEMER_TEMPERATURE must be greater than 0 and at most 5")
         if not 1024 <= max_input_chars <= 100000:
