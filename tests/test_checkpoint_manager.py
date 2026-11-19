@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from memer.models.checkpoints import (
     CheckpointManagerError,
@@ -29,7 +30,9 @@ class CheckpointManagerTests(unittest.TestCase):
         info = inspect_checkpoint(self.checkpoint)
         self.assertEqual(info["format"], "MEMER-TRANSFORMER")
         self.assertEqual(info["config"]["dimension"], 4)
-        self.assertEqual(info["parameters"], 259 * 4 + 4 * 4 + 259 + 8 + 4 * 4 * 4 + 4 * 4 + 8 + 4 * 4 * 4 + 4 + 4)
+        model = MemerTransformer(dimension=4, heads=1, layers=1, feed_forward_dim=4,
+                                 block_size=4)
+        self.assertEqual(info["parameters"], model.parameter_count())
 
     def test_validate_checkpoint_returns_metadata(self):
         self.assertEqual(validate_checkpoint(self.checkpoint)["format_version"], 1)
@@ -46,9 +49,10 @@ class CheckpointManagerTests(unittest.TestCase):
 
     def test_rejects_oversized_checkpoint_before_loading(self):
         bad = self.root / "large.json"
-        bad.write_bytes(b"x" * (512 * 1024 * 1024 + 1))
-        with self.assertRaises(CheckpointManagerError):
-            inspect_checkpoint(bad)
+        bad.write_bytes(b"x" * 17)
+        with patch("memer.models.checkpoints.MAX_CHECKPOINT_BYTES", 16):
+            with self.assertRaises(CheckpointManagerError):
+                inspect_checkpoint(bad)
 
     def test_list_checkpoints_marks_invalid_files(self):
         bad = self.root / "bad.json"
