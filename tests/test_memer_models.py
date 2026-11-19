@@ -55,3 +55,31 @@ class MemerModelsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ByteTokenizerTests(unittest.TestCase):
+    def test_round_trip_unicode(self):
+        from memer.models.byte_tokenizer import ByteTokenizer, BOS, EOS
+
+        tokenizer = ByteTokenizer()
+        text = "Memer: ¡Hola, mundo! 🚀 中文"
+        encoded = tokenizer.encode(text)
+        self.assertEqual(tokenizer.decode(encoded), text)
+        bounded = tokenizer.encode(text, add_boundaries=True)
+        self.assertEqual(bounded[0], BOS)
+        self.assertEqual(bounded[-1], EOS)
+        self.assertEqual(tokenizer.decode(bounded), text)
+
+    def test_fixed_vocabulary(self):
+        from memer.models.byte_tokenizer import ByteTokenizer
+
+        tokenizer = ByteTokenizer()
+        self.assertEqual(tokenizer.vocab_size, 259)
+        self.assertEqual(ByteTokenizer.from_dict(tokenizer.to_dict()).vocab_size, 259)
+
+    def test_rejects_invalid_token_ids(self):
+        from memer.models.byte_tokenizer import ByteTokenizer
+
+        tokenizer = ByteTokenizer()
+        with self.assertRaises(ValueError):
+            tokenizer.decode([999])
