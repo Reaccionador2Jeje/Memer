@@ -1,6 +1,7 @@
 """Command-line trainer for the native Memer Transformer.
 
 Usage:
+    memer train corpus.txt --output memer-transformer.json
     python -m memer.models.train_cli corpus.txt --output memer-transformer.json
 """
 
@@ -15,7 +16,7 @@ from memer.models.training import Adam, evaluate_model, train_model
 from memer.models.transformer import MemerTransformer
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Train a small native Memer Transformer")
     parser.add_argument("dataset", type=Path, help="UTF-8 text corpus; one document per line")
     parser.add_argument("--output", type=Path, default=Path("memer-transformer.json"))
@@ -29,10 +30,15 @@ def main() -> int:
     parser.add_argument("--feed-forward-dim", type=int, default=32)
     parser.add_argument("--block-size", type=int, default=32)
     parser.add_argument("--seed", type=int, default=17)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not args.dataset.is_file():
         parser.error(f"dataset file does not exist: {args.dataset}")
+    if args.epochs < 1 or args.batch_size < 1:
+        parser.error("--epochs and --batch-size must be positive")
+    if args.learning_rate <= 0:
+        parser.error("--learning-rate must be greater than zero")
+
     text = args.dataset.read_text(encoding="utf-8")
     tokenizer = ByteTokenizer()
     documents = encode_documents(text, tokenizer)
@@ -49,11 +55,8 @@ def main() -> int:
     )
     optimizer = Adam(learning_rate=args.learning_rate)
     history = train_model(
-        model, documents,
-        epochs=args.epochs,
-        batch_size=args.batch_size,
-        seed=args.seed,
-        optimizer=optimizer,
+        model, documents, epochs=args.epochs, batch_size=args.batch_size,
+        seed=args.seed, optimizer=optimizer,
     )
     if args.validation is not None:
         if not args.validation.is_file():
