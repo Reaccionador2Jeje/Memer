@@ -387,8 +387,8 @@ class CausalAttentionBackwardTests(unittest.TestCase):
             attention.output_bias, upstream, heads=1,
             attention_mask=[1, 0],
         )
-        self.assertEqual(grads["key"][1], [0.0, 0.0])
-        self.assertEqual(grads["value"][1], [0.0, 0.0])
+        self.assertEqual(grads["key_activations"][1], [0.0, 0.0])
+        self.assertEqual(grads["value_activations"][1], [0.0, 0.0])
 
     def test_attention_backward_rejects_invalid_dimensions(self):
         from memer.models.backward import causal_attention_backward
