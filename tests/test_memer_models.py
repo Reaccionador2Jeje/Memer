@@ -351,10 +351,9 @@ class CausalAttentionBackwardTests(unittest.TestCase):
         def objective():
             output = attention.forward(sequence)
             return sum(
-                output[b][p][d] * upstream[b][d]
-                for b in range(len(output))
-                for p in range(len(output[b]))
-                for d in range(len(output[b][p]))
+                output[position][dimension] * upstream[position][dimension]
+                for position in range(len(output))
+                for dimension in range(len(output[position]))
             )
 
         epsilon = 1e-5
