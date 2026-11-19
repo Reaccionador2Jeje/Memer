@@ -8,6 +8,7 @@ from memer.models.training import (
     cross_entropy_with_gradients,
     train_batch,
     train_model,
+    evaluate_model,
 )
 from memer.models.backward import (
     linear_backward,
@@ -25,6 +26,7 @@ __all__ = [
     "cross_entropy_with_gradients",
     "train_batch",
     "train_model",
+    "evaluate_model",
     "linear_backward",
     "layer_norm_backward",
     "relu_backward",
