@@ -8,8 +8,10 @@ separate milestone.
 
 from __future__ import annotations
 
+import json
 import math
 import random
+from pathlib import Path
 
 from memer.models.byte_tokenizer import BOS, EOS, PAD, VOCAB_SIZE
 
@@ -261,6 +263,156 @@ class MemerTransformer:
                 ])
             batch_logits.append(logits_row)
         return batch_logits
+
+
+    def _weights_payload(self) -> dict:
+        def attention_payload(attention):
+            return {
+                "query": attention.query, "key": attention.key,
+                "value": attention.value, "output": attention.output,
+                "query_bias": attention.query_bias, "key_bias": attention.key_bias,
+                "value_bias": attention.value_bias, "output_bias": attention.output_bias,
+            }
+
+        return {
+            "token_embeddings": self.token_embeddings,
+            "position_embeddings": self.position_embeddings,
+            "final_norm_scale": self.final_norm_scale,
+            "final_norm_bias": self.final_norm_bias,
+            "output_bias": self.output_bias,
+            "blocks": [
+                {
+                    "attention_norm_scale": block.attention_norm_scale,
+                    "attention_norm_bias": block.attention_norm_bias,
+                    "feed_forward_norm_scale": block.feed_forward_norm_scale,
+                    "feed_forward_norm_bias": block.feed_forward_norm_bias,
+                    "attention": attention_payload(block.attention),
+                    "ff1": block.ff1, "ff1_bias": block.ff1_bias,
+                    "ff2": block.ff2, "ff2_bias": block.ff2_bias,
+                }
+                for block in self.blocks
+            ],
+        }
+
+    def save(self, path: str | Path) -> str:
+        """Save architecture configuration and weights as a JSON checkpoint."""
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "format": "MEMER-TRANSFORMER",
+            "format_version": 1,
+            "config": {
+                "vocab_size": self.vocab_size,
+                "dimension": self.dimension,
+                "heads": self.heads,
+                "layers": self.layers,
+                "feed_forward_dim": self.feed_forward_dim,
+                "block_size": self.block_size,
+                "seed": self.seed,
+            },
+            "weights": self._weights_payload(),
+        }
+        temporary = target.with_suffix(target.suffix + ".tmp")
+        temporary.write_text(json.dumps(payload, allow_nan=False), encoding="utf-8")
+        temporary.replace(target)
+        return str(target)
+
+    @classmethod
+    def load(cls, path: str | Path) -> "MemerTransformer":
+        """Load a checkpoint, validating every tensor shape and numeric value."""
+        try:
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as error:
+            raise TransformerError(f"could not load Transformer checkpoint: {error}") from error
+        if not isinstance(payload, dict) or payload.get("format") != "MEMER-TRANSFORMER" or payload.get("format_version") != 1:
+            raise TransformerError("unsupported Transformer checkpoint format")
+        config = payload.get("config")
+        if not isinstance(config, dict):
+            raise TransformerError("checkpoint configuration is invalid")
+        try:
+            model = cls(**config)
+        except (TypeError, ValueError) as error:
+            raise TransformerError(f"invalid checkpoint configuration: {error}") from error
+
+        def restore(current, incoming, path_name):
+            if isinstance(current, list):
+                if not isinstance(incoming, list) or len(current) != len(incoming):
+                    raise TransformerError(f"invalid checkpoint shape at {path_name}")
+                if current and isinstance(current[0], list):
+                    for index, (left, right) in enumerate(zip(current, incoming)):
+                        restore(left, right, f"{path_name}[{index}]")
+                    return incoming
+                values = []
+                for value in incoming:
+                    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                        raise TransformerError(f"invalid checkpoint value at {path_name}")
+                    values.append(float(value))
+                return values
+            if isinstance(current, dict):
+                if not isinstance(incoming, dict) or set(current) != set(incoming):
+                    raise TransformerError(f"invalid checkpoint fields at {path_name}")
+                return {
+                    key: restore(value, incoming[key], f"{path_name}.{key}")
+                    for key, value in current.items()
+                }
+            raise TransformerError(f"unsupported checkpoint structure at {path_name}")
+
+        def restore_object(obj, incoming, path_name):
+            if not isinstance(incoming, dict):
+                raise TransformerError(f"invalid checkpoint object at {path_name}")
+            for key, current in vars(obj).items():
+                if key not in incoming:
+                    raise TransformerError(f"missing checkpoint field {path_name}.{key}")
+                value = incoming[key]
+                if isinstance(current, list):
+                    setattr(obj, key, restore(current, value, f"{path_name}.{key}"))
+                elif hasattr(current, "__dict__"):
+                    restore_object(current, value, f"{path_name}.{key}")
+                else:
+                    raise TransformerError(f"unsupported checkpoint field {path_name}.{key}")
+            if set(incoming) != set(vars(obj)):
+                raise TransformerError(f"unexpected checkpoint fields at {path_name}")
+
+        weights = payload.get("weights")
+        if not isinstance(weights, dict):
+            raise TransformerError("checkpoint weights are invalid")
+        restore_object(model, {
+            "token_embeddings": weights.get("token_embeddings"),
+            "position_embeddings": weights.get("position_embeddings"),
+            "final_norm_scale": weights.get("final_norm_scale"),
+            "final_norm_bias": weights.get("final_norm_bias"),
+            "output_bias": weights.get("output_bias"),
+            "blocks": model.blocks,
+        }, "model") if False else None
+
+        # Restore top-level tensors and each block explicitly.
+        for name in ("token_embeddings", "position_embeddings", "final_norm_scale", "final_norm_bias", "output_bias"):
+            if name not in weights:
+                raise TransformerError(f"missing checkpoint field weights.{name}")
+            setattr(model, name, restore(getattr(model, name), weights[name], f"weights.{name}"))
+
+        block_payloads = weights.get("blocks")
+        if not isinstance(block_payloads, list) or len(block_payloads) != len(model.blocks):
+            raise TransformerError("checkpoint block count is invalid")
+        for index, (block, saved) in enumerate(zip(model.blocks, block_payloads)):
+            if not isinstance(saved, dict):
+                raise TransformerError(f"invalid block checkpoint at index {index}")
+            for name in ("attention_norm_scale", "attention_norm_bias", "feed_forward_norm_scale",
+                         "feed_forward_norm_bias", "ff1", "ff1_bias", "ff2", "ff2_bias"):
+                if name not in saved:
+                    raise TransformerError(f"missing block field {name}")
+                setattr(block, name, restore(getattr(block, name), saved[name], f"blocks[{index}].{name}"))
+            attention = saved.get("attention")
+            if not isinstance(attention, dict):
+                raise TransformerError("attention checkpoint is invalid")
+            for name in ("query", "key", "value", "output", "query_bias", "key_bias", "value_bias", "output_bias"):
+                if name not in attention:
+                    raise TransformerError(f"missing attention field {name}")
+                setattr(block.attention, name, restore(
+                    getattr(block.attention, name), attention[name],
+                    f"blocks[{index}].attention.{name}"
+                ))
+        return model
 
     def parameter_count(self) -> int:
         """Return the number of scalar trainable parameters."""
