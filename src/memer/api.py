@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from memer import __version__
 from memer.config import Settings
-from memer.providers import MockProvider, OllamaProvider
+from memer.providers import MockProvider, NativeMemerProvider, OllamaProvider
 from memer.schemas import ChatRequest, ChatResponse, HealthResponse
 
 settings = Settings.from_env()
@@ -16,6 +16,14 @@ settings = Settings.from_env()
 def build_provider():
     if settings.provider == "mock":
         return MockProvider(model_name=settings.model_name)
+    if settings.provider == "native":
+        return NativeMemerProvider(
+            model_name=settings.model_name,
+            checkpoint_path=settings.native_checkpoint_path,
+            max_new_tokens=settings.native_max_new_tokens,
+            temperature=settings.native_temperature,
+            seed=settings.native_seed,
+        )
     if settings.provider == "ollama":
         return OllamaProvider(
             model_name=settings.model_name,
@@ -24,7 +32,7 @@ def build_provider():
         )
     raise RuntimeError(
         f"Unsupported provider '{settings.provider}'. "
-        "Available providers: mock, ollama."
+        "Available providers: mock, native, ollama."
     )
 
 
@@ -40,7 +48,7 @@ app = FastAPI(
     title="Memer API",
     description=(
         "AtDev's experimental AI service. Supports a development mock "
-        "and locally hosted models through Ollama."
+        "the native experimental Transformer, and locally hosted models through Ollama."
     ),
     version=__version__,
 )
