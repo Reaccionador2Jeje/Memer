@@ -117,5 +117,49 @@ class CausalBatchTests(unittest.TestCase):
             list(make_batches([], 4, 0))
 
 
+
+class MemerTransformerTests(unittest.TestCase):
+    def make_model(self):
+        from memer.models.transformer import MemerTransformer
+
+        return MemerTransformer(
+            vocab_size=259, dimension=8, heads=2, layers=1,
+            feed_forward_dim=16, block_size=8, seed=11,
+        )
+
+    def test_forward_logits_shape(self):
+        model = self.make_model()
+        logits = model.forward([[256, ord("h"), ord("i")], [256, ord("o"), ord("k")]])
+        self.assertEqual(len(logits), 2)
+        self.assertEqual(len(logits[0]), 3)
+        self.assertEqual(len(logits[0][0]), 259)
+        self.assertTrue(all(isinstance(value, float) for value in logits[0][0]))
+
+    def test_causal_attention_blocks_future_tokens(self):
+        model = self.make_model()
+        first = model.forward([[256, ord("a"), ord("b")]])
+        changed_future = model.forward([[256, ord("a"), ord("z")]])
+        self.assertEqual(first[0][0], changed_future[0][0])
+        self.assertEqual(first[0][1], changed_future[0][1])
+        self.assertNotEqual(first[0][2], changed_future[0][2])
+
+    def test_padding_mask_and_parameter_count(self):
+        model = self.make_model()
+        logits = model.forward([[256, ord("a"), 258]], [[1, 1, 0]])
+        self.assertEqual(len(logits[0]), 3)
+        self.assertGreater(model.parameter_count(), 0)
+
+    def test_rejects_invalid_transformer_inputs(self):
+        from memer.models.transformer import TransformerError
+
+        model = self.make_model()
+        with self.assertRaises(TransformerError):
+            model.forward([[256, 999]])
+        with self.assertRaises(TransformerError):
+            model.forward([[256] * 9])
+        with self.assertRaises(TransformerError):
+            model.forward([[256, 97], [256]])
+
+
 if __name__ == "__main__":
     unittest.main()
