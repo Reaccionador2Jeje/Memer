@@ -144,6 +144,23 @@ Then open [Memer Public](https://memer-public-ity8fh.v2.appdeploy.ai/), select P
 
 Memer Core now supports a production API-key gate and basic inference resource limits. For a hosted instance, configure `MEMER_ENV=production`, set `MEMER_API_KEYS` as a server-side secret, and review [the runtime security guide](docs/MEMER_RUNTIME_0.1.md). Production mode refuses chat requests without a valid Bearer key, limits prompt size and generation concurrency, and caps native output length. The concurrency guard is single-process only; distributed quotas and per-user keys are not implemented yet. Never put a server-wide API key in public browser code.
 
+## Memer Runtime 0.2 — Docker deployment
+
+For Linux servers and compatible container hosts, Memer includes a Dockerfile and Compose setup:
+
+```bash
+cp .env.example .env
+# Edit .env with your runtime configuration and private API key.
+# Put a trained checkpoint at ./checkpoints/model.json when using the native provider.
+docker compose build
+docker compose up -d
+docker compose logs -f memer
+```
+
+The container runs as a non-root user with a read-only filesystem, a read-only checkpoint mount, dropped Linux capabilities, and loopback-only host binding by default. Configure HTTPS and a reverse proxy before remote exposure. See [the Runtime 0.2 deployment guide](docs/MEMER_RUNTIME_0.2.md).
+
+**Android/Termux:** Docker is not part of the supported Termux setup. Continue using the Python virtual environment and `memer serve` directly on Android.
+
 ## HTTP API
 
 Health check:
