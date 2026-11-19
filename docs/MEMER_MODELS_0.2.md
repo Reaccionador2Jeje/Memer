@@ -37,11 +37,16 @@ Checkpoints preserve initialized or modified weights, but this milestone does no
 
 The new `memer.models.training.cross_entropy_with_gradients()` function calculates numerically stable mean next-token cross-entropy and its gradient with respect to the output logits. It supports batches, validates target IDs, and ignores padded targets through `IGNORE_INDEX`. This is the first training primitive; it does not yet propagate gradients through Transformer layers or update model parameters.
 
+## Stage 6: backward primitives
+
+The new `memer.models.backward` module implements analytical gradients for batched linear layers, LayerNorm, and ReLU. These functions are independently tested, including a finite-difference check for LayerNorm. They are building blocks only: full attention/block backward propagation and parameter updates are not implemented yet.
+
 ## Next stages
 
-1. Implement and test backpropagation through the Transformer.
-2. Add an optimizer and a memory-conscious training loop.
-3. Add generation, validation metrics, and a dedicated training CLI.
-4. Integrate the native model into Memer Core only after its format is stable.
+1. Implement and test attention and Transformer-block backward propagation.
+2. Connect gradients across the full model, including tied embeddings.
+3. Add an optimizer and a memory-conscious training loop.
+4. Add generation, validation metrics, and a dedicated training CLI.
+5. Integrate the native model into Memer Core only after its format is stable.
 
 The 0.2 model is experimental. It is not yet a conversational assistant or a production LLM.
