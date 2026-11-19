@@ -114,10 +114,15 @@ class TinyLanguageModel:
                 gradients[target_id] -= 1.0
                 context_gradient = [0.0] * self.embedding_dim
 
+                # Backpropagate through the weights used by this forward pass.
+                # Updating output weights before calculating this gradient would
+                # mix parameter versions and produce an incorrect gradient.
+                previous_output_weights = [row[:] for row in self.output_weights]
                 for token_id, gradient in enumerate(gradients):
+                    old_row = previous_output_weights[token_id]
                     row = self.output_weights[token_id]
                     for dimension in range(self.embedding_dim):
-                        context_gradient[dimension] += gradient * row[dimension]
+                        context_gradient[dimension] += gradient * old_row[dimension]
                         row[dimension] -= learning_rate * gradient * vector[dimension]
                     self.output_biases[token_id] -= learning_rate * gradient
 
