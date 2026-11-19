@@ -1,0 +1,26 @@
+services:
+  memer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: atdev/memer:0.3.0
+    container_name: memer-core
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MEMER_HOST: 0.0.0.0
+      MEMER_PORT: 8000
+      MEMER_CHECKPOINT_PATH: /app/checkpoints/model.json
+    ports:
+      - "${MEMER_BIND_ADDRESS:-127.0.0.1}:${MEMER_PUBLIC_PORT:-8000}:8000"
+    volumes:
+      - ./checkpoints:/app/checkpoints:ro
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
