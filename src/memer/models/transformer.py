@@ -153,6 +153,122 @@ class TransformerBlock:
         return output
 
 
+    def backward(
+        self,
+        sequence: list[list[float]],
+        output_gradients: list[list[float]],
+        attention_mask: list[int] | None = None,
+    ) -> tuple[list[list[float]], dict[str, object]]:
+        """Backpropagate one sequence through this block.
+
+        Returns input gradients and gradients for every trainable block
+        parameter. The forward activations are recomputed to keep the API
+        stateless and the implementation easy to inspect.
+        """
+        from memer.models.backward import (
+            causal_attention_backward,
+            layer_norm_backward,
+            linear_backward,
+            relu_backward,
+        )
+
+        length = len(sequence)
+        if length == 0 or len(output_gradients) != length:
+            raise ValueError("block backward requires matching non-empty sequences")
+        dimension = len(sequence[0])
+        if dimension != self.attention.dimension or any(
+            len(row) != dimension for row in sequence + output_gradients
+        ):
+            raise ValueError("block backward vector dimensions are invalid")
+        if attention_mask is None:
+            attention_mask = [1] * length
+        if len(attention_mask) != length or any(value not in (0, 1) for value in attention_mask):
+            raise ValueError("block backward attention mask is invalid")
+
+        def normalize_rows(rows, scale, bias):
+            return [_layer_norm(row, scale, bias) for row in rows]
+
+        def norm_backward_rows(rows, scale, gradients):
+            input_grads = []
+            scale_grad = [0.0] * dimension
+            bias_grad = [0.0] * dimension
+            for row, grad in zip(rows, gradients):
+                grad_input, grad_scale, grad_bias = layer_norm_backward(row, scale, grad)
+                input_grads.append(grad_input)
+                for index in range(dimension):
+                    scale_grad[index] += grad_scale[index]
+                    bias_grad[index] += grad_bias[index]
+            return input_grads, scale_grad, bias_grad
+
+        # Forward activations for the feed-forward residual branch.
+        norm1 = normalize_rows(sequence, self.attention_norm_scale, self.attention_norm_bias)
+        attended = self.attention.forward(norm1, attention_mask)
+        residual1 = [
+            [value + update for value, update in zip(row, attended_row)]
+            for row, attended_row in zip(sequence, attended)
+        ]
+        norm2 = normalize_rows(
+            residual1, self.feed_forward_norm_scale, self.feed_forward_norm_bias
+        )
+        hidden_pre = [
+            _linear(row, self.ff1, self.ff1_bias) for row in norm2
+        ]
+        hidden = [[max(0.0, value) for value in row] for row in hidden_pre]
+
+        # Feed-forward branch: output = residual1 + FFN(LN(residual1)).
+        grad_hidden, grad_ff2, grad_ff2_bias = linear_backward(
+            hidden, self.ff2, output_gradients
+        )
+        grad_hidden_pre = relu_backward(hidden_pre, grad_hidden)
+        grad_norm2, grad_ff1, grad_ff1_bias = linear_backward(
+            norm2, self.ff1, grad_hidden_pre
+        )
+        grad_residual_from_ffn, grad_ff_norm_scale, grad_ff_norm_bias = (
+            norm_backward_rows(
+                residual1, self.feed_forward_norm_scale, grad_norm2
+            )
+        )
+        grad_residual1 = [
+            [direct + branch for direct, branch in zip(upstream, extra)]
+            for upstream, extra in zip(output_gradients, grad_residual_from_ffn)
+        ]
+
+        # Attention branch and its preceding normalization.
+        grad_norm1, attention_grads = causal_attention_backward(
+            norm1,
+            self.attention.query, self.attention.key,
+            self.attention.value, self.attention.output,
+            self.attention.query_bias, self.attention.key_bias,
+            self.attention.value_bias, self.attention.output_bias,
+            grad_residual1,
+            heads=self.attention.heads,
+            attention_mask=attention_mask,
+        )
+        grad_sequence_from_attention, grad_att_norm_scale, grad_att_norm_bias = (
+            norm_backward_rows(
+                sequence, self.attention_norm_scale, grad_norm1
+            )
+        )
+
+        # First residual path carries the upstream gradient directly.
+        grad_sequence = [
+            [direct + branch for direct, branch in zip(upstream, extra)]
+            for upstream, extra in zip(grad_residual1, grad_sequence_from_attention)
+        ]
+        gradients: dict[str, object] = {
+            "attention_norm_scale": grad_att_norm_scale,
+            "attention_norm_bias": grad_att_norm_bias,
+            "feed_forward_norm_scale": grad_ff_norm_scale,
+            "feed_forward_norm_bias": grad_ff_norm_bias,
+            "attention": attention_grads,
+            "ff1": grad_ff1,
+            "ff1_bias": grad_ff1_bias,
+            "ff2": grad_ff2,
+            "ff2_bias": grad_ff2_bias,
+        }
+        return grad_sequence, gradients
+
+
 class MemerTransformer:
     """Configurable, small decoder-only Transformer with tied output embeddings."""
 
