@@ -47,6 +47,12 @@ The `causal_attention_backward()` primitive now propagates gradients through the
 
 This function is an independently tested primitive. It is not yet wired into TransformerBlock or a full-model training loop.
 
+## Stage 8: TransformerBlock backward
+
+`TransformerBlock.backward()` now recomputes the block's forward activations and propagates gradients through both pre-LayerNorm residual branches: causal multi-head attention, the two LayerNorm operations, the ReLU feed-forward network, and both residual connections. It returns input gradients and a nested gradient dictionary for attention and feed-forward parameters. Tests include finite-difference checks for an input, a feed-forward weight, and an attention projection weight, plus padding-mask and invalid-shape checks.
+
+This is a per-sequence block training primitive. The full model backward path, tied embedding gradients, optimizer, and training loop are still pending.
+
 ## Next stages
 
 1. Wire attention backward into TransformerBlock with residual and LayerNorm gradients.
