@@ -1,6 +1,7 @@
 """Native Memer Transformer provider for local checkpoint inference."""
 
 from pathlib import Path
+import math
 from typing import Sequence
 
 from memer.models.byte_tokenizer import ByteTokenizer
@@ -27,7 +28,7 @@ class NativeMemerProvider:
             raise ValueError(f"Memer checkpoint does not exist: {path}")
         if isinstance(max_new_tokens, bool) or not isinstance(max_new_tokens, int) or not 1 <= max_new_tokens <= 4096:
             raise ValueError("max_new_tokens must be an integer between 1 and 4096")
-        if temperature <= 0:
+        if not math.isfinite(temperature) or temperature <= 0:
             raise ValueError("temperature must be greater than zero")
         if not model_name.strip():
             raise ValueError("model_name cannot be empty")
