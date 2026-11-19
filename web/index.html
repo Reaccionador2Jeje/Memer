@@ -111,8 +111,12 @@ memer --help</code></pre></article>
 
 # API health
 curl http://127.0.0.1:8000/health</code></pre></article>
+          <article class="docs-card"><span class="docs-index">05 — NATIVE RUNTIME</span><h3>Connect your checkpoint</h3><pre><code>export MEMER_PROVIDER=native
+export MEMER_CHECKPOINT_PATH=checkpoints/memer.json
+export MEMER_CORS_ORIGINS="https://memer-public-ity8fh.v2.appdeploy.ai"
+memer serve --host 127.0.0.1</code></pre></article>
         </div>
-        <div class="notice"><span class="notice-icon">!</span><div><strong>Before connecting this site</strong><p>Configure <code>MEMER_CORS_ORIGINS</code> on your API server to include this website's exact origin. Do not expose an unauthenticated API publicly without understanding the resource and access risks.</p></div></div>
+        <div class="notice"><span class="notice-icon">!</span><div><strong>Before connecting this site</strong><p>Configure <code>MEMER_CORS_ORIGINS</code> on your API server to include this website's exact origin. Select <code>MEMER_PROVIDER=native</code> and point <code>MEMER_CHECKPOINT_PATH</code> to a trained checkpoint to use the experimental native model. Do not expose an unauthenticated API publicly without understanding the resource and access risks.</p></div></div>
         <a class="docs-source" href="https://github.com/Reaccionador2Jeje/Memer#readme" target="_blank" rel="noreferrer">Read the full README on GitHub ↗</a>
       </section>
     </main>
