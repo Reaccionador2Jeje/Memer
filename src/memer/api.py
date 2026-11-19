@@ -47,7 +47,7 @@ else:
 app = FastAPI(
     title="Memer API",
     description=(
-        "AtDev's experimental AI service. Supports a development mock "
+        "AtDev's experimental AI service. Supports a development mock, "
         "the native experimental Transformer, and locally hosted models through Ollama."
     ),
     version=__version__,
