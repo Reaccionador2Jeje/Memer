@@ -128,6 +128,31 @@ memer generate checkpoints/memer-small.json \
 
 Generation quality depends on model size, training time, and the quality, quantity, and licensing of the dataset. The included tiny example corpus is only for checking that training works; it is not enough to teach the model conversational language.
 
+### Manage named models (Runtime 0.4)
+
+Register a validated checkpoint with a model name, version, Memer API base URL, and API-key platform label:
+
+~~~bash
+memer models add checkpoints/memer-small.json \
+  --name memer-small \
+  --version 0.4.0 \
+  --base-url http://127.0.0.1:8000/v1 \
+  --api-platform Memer \
+  --api-key-env MEMER_API_KEYS
+~~~
+
+Then manage the registry and start the selected native model:
+
+~~~bash
+memer models list
+memer models inspect memer-small
+memer models use memer-small
+export MEMER_PROVIDER=native
+memer serve --host 127.0.0.1 --port 8000
+~~~
+
+The default registry is ~/.config/memer/models.json; override it with MEMER_REGISTRY_PATH or the CLI's --registry option. Removing a model never deletes its checkpoint. API key values are never saved in the registry: configure server keys through the environment or a hosting secret manager. See the Runtime 0.4 guide for details and limitations.
+
 ## Memer Public
 
 Memer Public is live at **https://memer-public-ity8fh.v2.appdeploy.ai/**. It includes the browser playground for connecting to a Memer Core API and an authenticated account workspace with a private model metadata library.
@@ -165,6 +190,10 @@ Then open [Memer Public](https://memer-public-ity8fh.v2.appdeploy.ai/), select P
 ## Memer Runtime security (0.1)
 
 Memer Core now supports a production API-key gate and basic inference resource limits. For a hosted instance, configure `MEMER_ENV=production`, set `MEMER_API_KEYS` as a server-side secret, and review [the runtime security guide](docs/MEMER_RUNTIME_0.1.md). Production mode refuses chat requests without a valid Bearer key, limits prompt size and generation concurrency, and caps native output length. The concurrency guard is single-process only; distributed quotas and per-user keys are not implemented yet. Never put a server-wide API key in public browser code.
+
+## Memer Runtime 0.4 — named model registry
+
+The CLI can register, inspect, select, and remove named local models, including their API base URL and API-key platform metadata. See docs/MEMER_RUNTIME_0.4.md. API key values remain outside the registry.
 
 ## Memer Runtime 0.3 — checkpoint management
 
