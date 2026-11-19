@@ -26,8 +26,10 @@ Memer Chat / MemeCode / AtDev apps
                 |
         Model provider interface
           /             \
- Development mock     Ollama adapter
-                     Local model runtime
+ Development mock   Native Memer model
+                    (experimental)
+                          |
+                    Memer Models
 ```
 
 Memer Core separates the API from model execution. A provider can be changed through configuration without changing the chat endpoint.
@@ -118,7 +120,7 @@ curl -X POST http://127.0.0.1:8000/v1/chat/completions \
 python -m unittest discover -s tests -v
 ```
 
-Tests use a mocked Ollama HTTP response; they do not require a running Ollama server or downloaded model.
+Tests cover the native model's training, text generation, and save/load cycle, plus the API and provider adapters. They do not require an Ollama server or downloaded model.
 
 ## Repository layout
 
