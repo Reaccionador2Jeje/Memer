@@ -51,6 +51,33 @@ def build_parser() -> argparse.ArgumentParser:
     checkpoint_validate = checkpoint_commands.add_parser("validate", help="validate a checkpoint")
     checkpoint_validate.add_argument("path", type=Path)
 
+    models = commands.add_parser("models", help="manage named local Memer models")
+    model_commands = models.add_subparsers(dest="models_command")
+
+    model_list = model_commands.add_parser("list", help="list registered models")
+    model_list.add_argument("--registry", type=Path)
+
+    model_add = model_commands.add_parser("add", help="register a validated native checkpoint")
+    model_add.add_argument("checkpoint", type=Path)
+    model_add.add_argument("--name", required=True)
+    model_add.add_argument("--version", default="1.0.0")
+    model_add.add_argument("--base-url", default="http://127.0.0.1:8000/v1")
+    model_add.add_argument("--api-platform", default="Memer")
+    model_add.add_argument("--api-key-env", default="MEMER_API_KEYS")
+    model_add.add_argument("--registry", type=Path)
+
+    model_use = model_commands.add_parser("use", help="select the active model")
+    model_use.add_argument("name")
+    model_use.add_argument("--registry", type=Path)
+
+    model_inspect = model_commands.add_parser("inspect", help="inspect a registered model")
+    model_inspect.add_argument("name")
+    model_inspect.add_argument("--registry", type=Path)
+
+    model_remove = model_commands.add_parser("remove", help="remove a model from the registry (keeps checkpoint)")
+    model_remove.add_argument("name")
+    model_remove.add_argument("--registry", type=Path)
+
     generate = commands.add_parser("generate", help="generate text from a saved native checkpoint")
     generate.add_argument("checkpoint", type=Path)
     generate.add_argument("--prompt", required=True)
@@ -80,6 +107,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "serve":
         if not 1 <= args.port <= 65535:
             parser.error("--port must be between 1 and 65535")
+        if os.getenv("MEMER_PROVIDER", "mock").strip().lower() == "native" and not os.getenv("MEMER_CHECKPOINT_PATH"):
+            from memer.models.registry import get_active_model
+            active_model = get_active_model()
+            if active_model:
+                os.environ["MEMER_CHECKPOINT_PATH"] = active_model["checkpoint_path"]
+                os.environ["MEMER_MODEL_NAME"] = active_model["name"]
+                os.environ["MEMER_BASE_URL"] = active_model["base_url"] or ""
+                os.environ["MEMER_API_KEY_PLATFORM"] = active_model["api_platform"]
+                os.environ["MEMER_API_KEY_ENV"] = active_model["api_key_env"] or ""
         try:
             import uvicorn
         except ImportError as exc:
@@ -147,6 +183,64 @@ def main(argv: list[str] | None = None) -> int:
 
             parser.error("choose checkpoint list, checkpoint inspect, or checkpoint validate")
         except CheckpointManagerError as exc:
+            parser.error(str(exc))
+
+    if args.command == "models":
+        from memer.models.registry import (
+            ModelRegistryError, add_model, get_model, list_models, remove_model, use_model,
+        )
+        registry_path = args.registry
+        try:
+            if args.models_command == "list":
+                entries = list_models(registry_path) if registry_path else list_models()
+                if not entries:
+                    print("No models registered. Use 'memer models add' to register one.")
+                    return 0
+                for item in entries:
+                    marker = "*" if item["active"] else " "
+                    print(f"{marker} {item['name']}:{item['version']}  [{item['provider']}]")
+                    print(f"    Base URL: {item['base_url'] or '(not configured)'}")
+                    print(f"    API key platform: {item['api_platform']}")
+                return 0
+            if args.models_command == "add":
+                options = {"name": args.name, "version": args.version,
+                           "base_url": args.base_url, "api_platform": args.api_platform,
+                           "api_key_env": args.api_key_env}
+                if registry_path:
+                    options["path"] = registry_path
+                item = add_model(args.checkpoint, **options)
+                print(f"Registered: {item['name']}:{item['version']}")
+                print(f"Base URL: {item['base_url'] or '(not configured)'}")
+                print(f"API key platform: {item['api_platform']}")
+                print("API key secret: not stored; configure it in the environment.")
+                if item["active"]:
+                    print("Selected as active model.")
+                return 0
+            if args.models_command == "use":
+                item = use_model(args.name, path=registry_path) if registry_path else use_model(args.name)
+                print(f"Active model: {item['name']}:{item['version']}")
+                return 0
+            if args.models_command == "inspect":
+                item = get_model(args.name, path=registry_path) if registry_path else get_model(args.name)
+                print(f"Model: {item['name']}")
+                print(f"Version: {item['version']}")
+                print(f"Provider: {item['provider']}")
+                print(f"Checkpoint: {item['checkpoint_path']}")
+                print(f"Base URL: {item['base_url'] or '(not configured)'}")
+                print(f"API key platform: {item['api_platform']}")
+                print(f"API key environment variable: {item['api_key_env'] or '(none)'}")
+                print(f"Active: {'yes' if item['active'] else 'no'}")
+                print(f"Parameters: {item['parameters']}")
+                return 0
+            if args.models_command == "remove":
+                if registry_path:
+                    remove_model(args.name, path=registry_path)
+                else:
+                    remove_model(args.name)
+                print(f"Removed '{args.name}' from registry. Checkpoint file was kept.")
+                return 0
+            parser.error("choose models list, add, use, inspect, or remove")
+        except (ModelRegistryError, ValueError) as exc:
             parser.error(str(exc))
 
     if args.command == "generate":
