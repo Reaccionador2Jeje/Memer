@@ -94,6 +94,28 @@ Optional validation data:
 memer train train.txt --validation validation.txt --output checkpoints/memer.json
 ```
 
+### Manage local checkpoints
+
+List checkpoints in the default `checkpoints/` folder:
+
+```bash
+memer checkpoint list
+```
+
+Inspect architecture and parameter count:
+
+```bash
+memer checkpoint inspect checkpoints/memer-small.json
+```
+
+Validate a checkpoint before using it:
+
+```bash
+memer checkpoint validate checkpoints/memer-small.json
+```
+
+The list command marks invalid JSON or incompatible checkpoints instead of treating them as usable models. Inspection loads the checkpoint through Memer's format and tensor validation. Checkpoint files are local; this feature does not upload them to Memer Public.
+
 ### Generate text from a checkpoint
 
 ```bash
@@ -143,6 +165,10 @@ Then open [Memer Public](https://memer-public-ity8fh.v2.appdeploy.ai/), select P
 ## Memer Runtime security (0.1)
 
 Memer Core now supports a production API-key gate and basic inference resource limits. For a hosted instance, configure `MEMER_ENV=production`, set `MEMER_API_KEYS` as a server-side secret, and review [the runtime security guide](docs/MEMER_RUNTIME_0.1.md). Production mode refuses chat requests without a valid Bearer key, limits prompt size and generation concurrency, and caps native output length. The concurrency guard is single-process only; distributed quotas and per-user keys are not implemented yet. Never put a server-wide API key in public browser code.
+
+## Memer Runtime 0.3 — checkpoint management
+
+Memer CLI can list, inspect, and validate local Transformer checkpoints. See [the checkpoint commands](#manage-local-checkpoints). This is local file management only; hosted uploads and model serving from a remote registry are not implemented yet.
 
 ## Memer Runtime 0.2 — Docker deployment
 
