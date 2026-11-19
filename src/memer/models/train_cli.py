@@ -11,7 +11,7 @@ from pathlib import Path
 
 from memer.models.byte_tokenizer import ByteTokenizer
 from memer.models.data import encode_documents
-from memer.models.training import Adam, train_model
+from memer.models.training import Adam, evaluate_model, train_model
 from memer.models.transformer import MemerTransformer
 
 
@@ -19,6 +19,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Train a small native Memer Transformer")
     parser.add_argument("dataset", type=Path, help="UTF-8 text corpus; one document per line")
     parser.add_argument("--output", type=Path, default=Path("memer-transformer.json"))
+    parser.add_argument("--validation", type=Path, help="optional UTF-8 validation corpus")
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--learning-rate", type=float, default=0.001)
@@ -54,6 +55,16 @@ def main() -> int:
         seed=args.seed,
         optimizer=optimizer,
     )
+    if args.validation is not None:
+        if not args.validation.is_file():
+            parser.error(f"validation file does not exist: {args.validation}")
+        validation_text = args.validation.read_text(encoding="utf-8")
+        validation_documents = encode_documents(validation_text, tokenizer)
+        if not validation_documents:
+            parser.error("validation dataset contains no non-empty lines")
+        validation_loss = evaluate_model(model, validation_documents, batch_size=args.batch_size)
+        print(f"validation loss: {validation_loss:.6f}")
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
     model.save(args.output)
     for epoch, loss in enumerate(history, start=1):
