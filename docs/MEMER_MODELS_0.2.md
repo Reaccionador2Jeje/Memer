@@ -53,12 +53,27 @@ This function is an independently tested primitive. It is not yet wired into Tra
 
 This is a per-sequence block training primitive. The full model backward path, tied embedding gradients, optimizer, and training loop are still pending.
 
+## Stage 9: full-model backward and tied embeddings
+
+`MemerTransformer.backward()` now propagates gradients from logits through the final LayerNorm, every TransformerBlock, and the input token/position embeddings. Because the token embedding matrix is tied to the output projection, its returned gradient accumulates contributions from both paths. It accepts batches and per-row attention masks and returns a parameter-gradient tree matching the model checkpoint weight structure.
+
+## Stage 10: Adam and training loop
+
+The pure-Python `Adam` optimizer supports nested model parameter dictionaries/lists, bias correction, optional weight decay, and global gradient clipping. `train_batch()` runs forward, masked next-token cross-entropy, full backward, and one optimizer update. `train_model()` repeats this over shuffled batches and reports mean epoch losses.
+
+## Stage 11: text generation and CLI
+
+`MemerTransformer.generate()` provides seeded autoregressive sampling with a UTF-8 byte tokenizer. A small command-line trainer is available:
+
+```bash
+python -m memer.models.train_cli corpus.txt --output memer-transformer.json --epochs 3
+```
+
+Useful small-device settings can be supplied with `--dimension`, `--heads`, `--layers`, `--feed-forward-dim`, `--block-size`, and `--batch-size`. Pure-Python training is computationally expensive; start with a tiny corpus and small dimensions. A successful run proves the training pipeline works, not that the model has learned useful conversational behavior. Dataset quality and scale matter substantially.
+
 ## Next stages
 
-1. Wire attention backward into TransformerBlock with residual and LayerNorm gradients.
-2. Connect gradients across the full model, including tied embeddings.
-3. Add an optimizer and a memory-conscious training loop.
-4. Add generation, validation metrics, and a dedicated training CLI.
-5. Integrate the native model into Memer Core only after its format is stable.
+1. Add validation metrics, optimizer-state checkpoint persistence, and more extensive training/evaluation tests.
+2. Integrate the native model into Memer Core only after its format is stable.
 
 The 0.2 model is experimental. It is not yet a conversational assistant or a production LLM.
