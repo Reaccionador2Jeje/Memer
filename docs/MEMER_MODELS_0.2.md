@@ -33,12 +33,15 @@ This milestone provides inference logits only. It does not yet include gradient 
 
 Checkpoints preserve initialized or modified weights, but this milestone does not add an optimizer or trainable gradient path. Training is still a future milestone.
 
+## Stage 5: cross-entropy and output gradients
+
+The new `memer.models.training.cross_entropy_with_gradients()` function calculates numerically stable mean next-token cross-entropy and its gradient with respect to the output logits. It supports batches, validates target IDs, and ignores padded targets through `IGNORE_INDEX`. This is the first training primitive; it does not yet propagate gradients through Transformer layers or update model parameters.
+
 ## Next stages
 
-1. Build causal training examples and padded batches.
-2. Implement a small decoder-only Transformer with causal self-attention.
-3. Add a memory-conscious training loop and validation metrics.
-4. Add checkpoint save/load and a dedicated CLI.
-5. Integrate the native model into Memer Core only after its format is stable.
+1. Implement and test backpropagation through the Transformer.
+2. Add an optimizer and a memory-conscious training loop.
+3. Add generation, validation metrics, and a dedicated training CLI.
+4. Integrate the native model into Memer Core only after its format is stable.
 
 The 0.2 model is experimental. It is not yet a conversational assistant or a production LLM.
