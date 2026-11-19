@@ -316,3 +316,90 @@ class TransformerBackwardPrimitiveTests(unittest.TestCase):
             layer_norm_backward([1.0, 2.0], [1.0], [1.0, 1.0])
         with self.assertRaises(ValueError):
             relu_backward([[1.0]], [[1.0, 2.0]])
+
+
+
+class CausalAttentionBackwardTests(unittest.TestCase):
+    def make_attention(self):
+        import random
+        from memer.models.transformer import CausalSelfAttention
+
+        attention = CausalSelfAttention(2, 1, random.Random(31))
+        attention.query = [[0.2, -0.1], [0.05, 0.3]]
+        attention.key = [[-0.2, 0.15], [0.25, 0.1]]
+        attention.value = [[0.4, -0.3], [0.2, 0.35]]
+        attention.output = [[0.3, 0.1], [-0.15, 0.25]]
+        attention.query_bias = [0.01, -0.02]
+        attention.key_bias = [0.03, 0.01]
+        attention.value_bias = [-0.01, 0.02]
+        attention.output_bias = [0.0, 0.04]
+        return attention
+
+    def test_attention_gradients_match_finite_differences(self):
+        from memer.models.backward import causal_attention_backward
+
+        attention = self.make_attention()
+        sequence = [[0.7, -0.2], [0.1, 0.9]]
+        upstream = [[0.3, -0.4], [0.2, 0.5]]
+        grad_inputs, grads = causal_attention_backward(
+            sequence,
+            attention.query, attention.key, attention.value, attention.output,
+            attention.query_bias, attention.key_bias, attention.value_bias,
+            attention.output_bias, upstream, heads=1,
+        )
+
+        def objective():
+            output = attention.forward(sequence)
+            return sum(
+                output[b][p][d] * upstream[b][d]
+                for b in range(len(output))
+                for p in range(len(output[b]))
+                for d in range(len(output[b][p]))
+            )
+
+        epsilon = 1e-5
+        checks = [
+            (attention.query, 0, 0, grads["query"][0][0]),
+            (attention.key, 1, 0, grads["key"][1][0]),
+            (attention.value, 0, 1, grads["value"][0][1]),
+            (attention.output, 1, 0, grads["output"][1][0]),
+            (sequence, 1, 1, grad_inputs[1][1]),
+        ]
+        for matrix, row, column, analytic in checks:
+            original = matrix[row][column]
+            matrix[row][column] = original + epsilon
+            plus = objective()
+            matrix[row][column] = original - epsilon
+            minus = objective()
+            matrix[row][column] = original
+            numeric = (plus - minus) / (2 * epsilon)
+            self.assertAlmostEqual(analytic, numeric, places=5)
+
+    def test_attention_mask_blocks_masked_key_and_value_gradients(self):
+        from memer.models.backward import causal_attention_backward
+
+        attention = self.make_attention()
+        sequence = [[0.7, -0.2], [0.1, 0.9]]
+        upstream = [[0.3, -0.4], [0.2, 0.5]]
+        _, grads = causal_attention_backward(
+            sequence,
+            attention.query, attention.key, attention.value, attention.output,
+            attention.query_bias, attention.key_bias, attention.value_bias,
+            attention.output_bias, upstream, heads=1,
+            attention_mask=[1, 0],
+        )
+        self.assertEqual(grads["key"][1], [0.0, 0.0])
+        self.assertEqual(grads["value"][1], [0.0, 0.0])
+
+    def test_attention_backward_rejects_invalid_dimensions(self):
+        from memer.models.backward import causal_attention_backward
+
+        attention = self.make_attention()
+        with self.assertRaises(ValueError):
+            causal_attention_backward(
+                [[1.0, 2.0]], attention.query, attention.key,
+                attention.value, attention.output,
+                attention.query_bias, attention.key_bias,
+                attention.value_bias, attention.output_bias,
+                [[1.0, 1.0]], heads=3,
+            )
