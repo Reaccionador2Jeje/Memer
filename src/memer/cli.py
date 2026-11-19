@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -113,9 +114,12 @@ def main(argv: list[str] | None = None) -> int:
             if active_model:
                 os.environ["MEMER_CHECKPOINT_PATH"] = active_model["checkpoint_path"]
                 os.environ["MEMER_MODEL_NAME"] = active_model["name"]
-                os.environ["MEMER_BASE_URL"] = active_model["base_url"] or ""
-                os.environ["MEMER_API_KEY_PLATFORM"] = active_model["api_platform"]
-                os.environ["MEMER_API_KEY_ENV"] = active_model["api_key_env"] or ""
+                if not os.getenv("MEMER_BASE_URL"):
+                    os.environ["MEMER_BASE_URL"] = active_model["base_url"] or ""
+                if not os.getenv("MEMER_API_KEY_PLATFORM"):
+                    os.environ["MEMER_API_KEY_PLATFORM"] = active_model["api_platform"]
+                if not os.getenv("MEMER_API_KEY_ENV"):
+                    os.environ["MEMER_API_KEY_ENV"] = active_model["api_key_env"] or ""
         try:
             import uvicorn
         except ImportError as exc:
