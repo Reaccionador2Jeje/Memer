@@ -178,33 +178,35 @@ class Adam:
                 return first_value, second_value
             return first, second
 
-        # Recursively replace scalar moment leaves while mutating parameter leaves.
+        # Mutate parameter containers and return updated moment leaves.
         def walk(param, grad, first, second):
             if isinstance(param, dict):
                 if not isinstance(grad, dict) or set(param) != set(grad):
                     raise ValueError("Adam parameter and gradient fields differ")
                 for key in param:
-                    first[key], second[key] = walk(
+                    param[key], first[key], second[key] = walk(
                         param[key], grad[key], first[key], second[key]
                     )
-                return first, second
+                return param, first, second
             if isinstance(param, list):
+                if not isinstance(grad, list) or len(param) != len(grad):
+                    raise ValueError("Adam parameter and gradient shapes differ")
                 for index in range(len(param)):
-                    first[index], second[index] = walk(
+                    param[index], first[index], second[index] = walk(
                         param[index], grad[index], first[index], second[index]
                     )
-                return first, second
+                return param, first, second
             g = float(grad) * clip
             first_value = self.beta1 * first + (1.0 - self.beta1) * g
             second_value = self.beta2 * second + (1.0 - self.beta2) * g * g
-            param -= self.learning_rate * (
+            updated = param - self.learning_rate * (
                 (first_value / correction1) /
                 (math.sqrt(second_value / correction2) + self.epsilon)
                 + self.weight_decay * param
             )
-            return first_value, second_value
+            return updated, first_value, second_value
 
-        self.first_moment, self.second_moment = walk(
+        _, self.first_moment, self.second_moment = walk(
             parameters, gradients, self.first_moment, self.second_moment
         )
 
