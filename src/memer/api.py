@@ -1,7 +1,9 @@
 """FastAPI application exposing the Memer Core HTTP API."""
 
 from uuid import uuid4
+import os
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from memer import __version__
 from memer.config import Settings
@@ -41,6 +43,24 @@ app = FastAPI(
         "and locally hosted models through Ollama."
     ),
     version=__version__,
+)
+
+# Browser clients can connect when the operator explicitly allows their origin.
+# Keep the default limited to local development instead of opening a public API.
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "MEMER_CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
 
