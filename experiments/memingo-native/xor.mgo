@@ -1,0 +1,31 @@
+# Memingo AI API smoke test.
+# This verifies the current dense-network engine only.
+# It is NOT a language model or Transformer.
+
+vibe model = ai.create({
+    name: "Memer-Memingo-AI-Smoke",
+    layers: [2, 4, 1],
+    activation: "sigmoid"
+})
+
+vibe training = ai.dataset(
+    [[0, 0], [0, 1], [1, 0], [1, 1]],
+    [[0], [1], [1], [0]]
+)
+
+vibe report = ai.train(model, training, {
+    epochs: 2500,
+    learning_rate: 0.5,
+    batch_size: 2,
+    shuffle: based
+})
+
+spill "Memer / Memingo AI engine smoke test"
+spill report
+spill "Prediction [0, 1]:"
+spill ai.predict(model, [0, 1])
+spill "Evaluation:"
+spill ai.evaluate(model, training)
+
+ai.save(model, "artifacts/memer-memingo-smoke.mgoai")
+spill "Checkpoint saved."
